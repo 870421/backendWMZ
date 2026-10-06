@@ -60,19 +60,40 @@ describe('POST /api/routes/fastest', () => {
     expect(getFastestWalkingRoute).not.toHaveBeenCalled();
   });
 
-  it('preserves controlled provider errors', async () => {
+  it.each([
+    [429, 'Route provider quota has been exceeded. Please try again shortly.'],
+    [502, 'Route provider is unavailable.'],
+    [504, 'Route calculation timed out. Please try again.']
+  ])('preserves controlled provider error %s', async (status, message) => {
     getFastestWalkingRoute.mockRejectedValue(Object.assign(
-      new Error('Route calculation timed out. Please try again.'),
-      { status: 504 }
+      new Error(message),
+      { status }
     ));
 
     const response = await request(createApp())
       .post('/api/routes/fastest')
       .send({ origin, destination });
 
-    expect(response.status).toBe(504);
+    expect(response.status).toBe(status);
     expect(response.body).toEqual({
-      error: { message: 'Route calculation timed out. Please try again.' }
+      error: { message }
     });
+  });
+
+  it('does not expose unexpected provider details', async () => {
+    getFastestWalkingRoute.mockRejectedValue(
+      new Error('test-key and sensitive provider response body')
+    );
+
+    const response = await request(createApp())
+      .post('/api/routes/fastest')
+      .send({ origin, destination });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: { message: 'Internal server error' }
+    });
+    expect(response.text).not.toContain('test-key');
+    expect(response.text).not.toContain('sensitive provider response body');
   });
 });
