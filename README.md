@@ -35,7 +35,7 @@ All geometries are stored in EPSG:4326 with GIST indexes.
 Run after the migrations, in this order:
 
 ```bash
-npm run import:all            # buildings, trees and pedestrian network (about 15 minutes)
+npm run import:all            # buildings, trees and pedestrian network (about 20 minutes)
 # or one by one:
 npm run import:buildings      # IDEZAR citygml3d:building
 npm run import:trees          # IDEZAR idezar_base:arboles_2022
