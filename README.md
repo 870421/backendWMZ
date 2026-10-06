@@ -111,6 +111,16 @@ npm run lint                  # ESLint (airbnb-base + compatibilidad con Prettie
 npm run format:check          # Prettier
 ```
 
+Para ejecutar localmente las mismas comprobaciones que GitHub Actions:
+
+```bash
+npm run ci
+```
+
+Este comando ejecuta ESLint, comprueba el formato con Prettier, valida la sintaxis y lanza los
+tests unitarios y HTTP. El workflow se ejecuta en cada pull request hacia `main`. Las llamadas a
+OpenRouteService están simuladas en los tests, por lo que CI no necesita `ORS_API_KEY`.
+
 ## Arranque en producción
 
 ```bash
@@ -133,8 +143,12 @@ npm start
   `BUILDING_MAX_HEIGHT_PER_FLOOR_M` (8), `BUILDING_MAX_SINGLE_STOREY_HEIGHT_M` (40),
   `BUILDING_SUSPICIOUS_SINGLE_STOREY_HEIGHT_M` (15), `BUILDING_SUSPICIOUS_HEIGHT_PER_FLOOR_M` (6):
   estimación de la altura de los edificios (ver ADR-001 en el `docs/DECISIONS.md` del workspace).
-- `ORS_API_KEY`: clave de API de OpenRouteService / HeiGIT que usa el autocompletado. Guárdala solo en el `backend/.env` ignorado por Git o en el entorno del servidor. `OPENROUTESERVICE_API_KEY` sigue funcionando como alternativa para configuraciones antiguas.
+- `ORS_API_KEY`: clave de API de OpenRouteService / HeiGIT que usan el autocompletado y el cálculo
+  de rutas. Guárdala solo en el `backend/.env` ignorado por Git o en el entorno del servidor.
+  `OPENROUTESERVICE_API_KEY` sigue funcionando como alternativa para configuraciones antiguas.
 - `OPENROUTESERVICE_GEOCODING_BASE_URL`: URL base de la API de geocodificación. Valor local por defecto: `https://api.heigit.org/pelias/v1`.
+- `OPENROUTESERVICE_DIRECTIONS_BASE_URL`: URL base de la API de rutas. Valor local por defecto:
+  `https://api.openrouteservice.org/v2/directions`.
 
 ## Contrato del autocompletado (PBI-1)
 
@@ -155,6 +169,74 @@ Desde la raíz del workspace, `docker compose up` carga `backend/.env` mediante 
 Crea ese fichero (ignorado por Git) a partir de `.env.example` antes de arrancar Compose; no
 sobrescribas una clave existente. El frontend llega a la API a través del proxy de desarrollo de
 Vite.
+
+## Contrato de la ruta rápida (PBI-2)
+
+`POST /api/routes/fastest`
+
+Calcula la ruta peatonal más rápida entre dos coordenadas, sin considerar sombra, sol, viento ni
+otros factores de confort.
+
+### Petición
+
+El cuerpo JSON debe incluir `origin` y `destination`. Cada punto debe contener una latitud entre
+`-90` y `90` y una longitud entre `-180` y `180`:
+
+```json
+{
+  "origin": { "lat": 41.6488, "lng": -0.8891 },
+  "destination": { "lat": 41.656, "lng": -0.878 }
+}
+```
+
+Ejemplo:
+
+```bash
+curl --request POST http://localhost:3000/api/routes/fastest \
+  --header "Content-Type: application/json" \
+  --data '{
+    "origin": { "lat": 41.6488, "lng": -0.8891 },
+    "destination": { "lat": 41.656, "lng": -0.878 }
+  }'
+```
+
+### Respuesta correcta
+
+Devuelve `200 OK` con una geometría GeoJSON `LineString`, la distancia total en metros y la
+duración estimada en segundos:
+
+```json
+{
+  "route": {
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-0.8891, 41.6488],
+        [-0.884, 41.652],
+        [-0.878, 41.656]
+      ]
+    },
+    "distance": 1250.4,
+    "duration": 930.2
+  }
+}
+```
+
+### Errores
+
+Todos los errores usan `{ "error": { "message": "..." } }`:
+
+| Código | Significado |
+| --- | --- |
+| `400` | Faltan coordenadas, no son numéricas o están fuera de rango. |
+| `429` | Se ha agotado la cuota de OpenRouteService. |
+| `502` | El proveedor no está disponible o ha devuelto una respuesta inválida. |
+| `503` | El servidor no tiene configurada la clave de OpenRouteService. |
+| `504` | OpenRouteService no ha respondido antes del timeout de 8 segundos. |
+| `500` | Error interno inesperado. |
+
+Las respuestas nunca incluyen credenciales, cuerpos del proveedor ni detalles internos. Los
+tests automáticos simulan OpenRouteService y no consumen cuota.
 
 ## Checklist de verificación manual
 
