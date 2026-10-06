@@ -6,4 +6,3 @@ function getHealth(_req, res) {
 }
 
 module.exports = { getHealth };
-

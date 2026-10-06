@@ -1,0 +1,125 @@
+{
+  "version": 0.6,
+  "generator": "fixture",
+  "elements": [
+    {
+      "type": "way",
+      "id": 100,
+      "nodes": [1, 2, 3],
+      "tags": {
+        "highway": "footway",
+        "name": "Calle A"
+      }
+    },
+    {
+      "type": "way",
+      "id": 101,
+      "nodes": [4, 2, 5],
+      "tags": {
+        "highway": "residential",
+        "name": "Calle B"
+      }
+    },
+    {
+      "type": "way",
+      "id": 102,
+      "nodes": [3, 6],
+      "tags": {
+        "highway": "steps"
+      }
+    },
+    {
+      "type": "way",
+      "id": 103,
+      "nodes": [1, 999],
+      "tags": {
+        "highway": "footway"
+      }
+    },
+    {
+      "type": "way",
+      "id": 104,
+      "nodes": [7, 8],
+      "tags": {
+        "highway": "footway"
+      }
+    },
+    {
+      "type": "way",
+      "id": 105,
+      "nodes": [9, 10],
+      "tags": {
+        "highway": "path"
+      }
+    },
+    {
+      "type": "way",
+      "id": 106,
+      "nodes": [3, 5],
+      "tags": {
+        "highway": "footway",
+        "foot": "no"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1,
+      "lat": 41.65,
+      "lon": -0.88
+    },
+    {
+      "type": "node",
+      "id": 2,
+      "lat": 41.65,
+      "lon": -0.879
+    },
+    {
+      "type": "node",
+      "id": 3,
+      "lat": 41.65,
+      "lon": -0.878
+    },
+    {
+      "type": "node",
+      "id": 4,
+      "lat": 41.651,
+      "lon": -0.879
+    },
+    {
+      "type": "node",
+      "id": 5,
+      "lat": 41.649,
+      "lon": -0.879
+    },
+    {
+      "type": "node",
+      "id": 6,
+      "lat": 41.65,
+      "lon": -0.877
+    },
+    {
+      "type": "node",
+      "id": 7,
+      "lat": 41.65,
+      "lon": 2.0
+    },
+    {
+      "type": "node",
+      "id": 8,
+      "lat": 41.65,
+      "lon": 2.001
+    },
+    {
+      "type": "node",
+      "id": 9,
+      "lat": 41.66,
+      "lon": -0.87
+    },
+    {
+      "type": "node",
+      "id": 10,
+      "lat": 41.66,
+      "lon": -0.87
+    }
+  ]
+}

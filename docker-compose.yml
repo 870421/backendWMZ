@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-weathermapz}
+      POSTGRES_USER: ${DB_USER:-weathermapz}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-weathermapz}
+      DB_TEST_NAME: ${DB_TEST_NAME:-weathermapz_test}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
