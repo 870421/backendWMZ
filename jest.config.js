@@ -1,11 +1,7 @@
 module.exports = {
   testEnvironment: 'node',
   cacheDirectory: '<rootDir>/.jest-cache',
-  collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/server.js',
-    '!src/config/database.js'
-  ],
+  collectCoverageFrom: ['src/**/*.js', '!src/server.js', '!src/config/database.js'],
   coverageThreshold: {
     global: {
       branches: 50,

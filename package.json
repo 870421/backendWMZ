@@ -11,7 +11,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:test": "sequelize-cli db:migrate --env test",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo"
   },
   "dependencies": {
     "cors": "^2.8.5",
