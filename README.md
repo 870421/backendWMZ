@@ -47,7 +47,7 @@ npm start
 - `PORT`: HTTP port. Default local value: `3000`.
 - `CORS_ORIGIN`: allowed frontend origin. Default local value: `http://localhost:5173`.
 - `DATABASE_URL`: PostgreSQL/PostGIS connection string.
-- `ORS_API_KEY`: OpenRouteService / HeiGIT API key used by geocoding autocomplete. Keep it only in the ignored `backend/.env` or server environment. `OPENROUTESERVICE_API_KEY` remains a fallback for older setups.
+- `ORS_API_KEY`: OpenRouteService / HeiGIT API key used by geocoding autocomplete and pedestrian routing. Keep it only in the ignored `backend/.env` or server environment. `OPENROUTESERVICE_API_KEY` remains a fallback for older setups.
 - `OPENROUTESERVICE_GEOCODING_BASE_URL`: geocoding API base URL. Default local value: `https://api.heigit.org/pelias/v1`.
 - `OPENROUTESERVICE_DIRECTIONS_BASE_URL`: directions API base URL. Default local value: `https://api.openrouteservice.org/v2/directions`.
 
@@ -70,6 +70,35 @@ Automated tests mock external requests.
 
 `POST /api/routes/fastest`
 
+Calculates the fastest pedestrian route between two coordinates. This baseline route
+does not take shade, sun, wind or other comfort factors into account.
+
+### Request
+
+Send a JSON body with the following fields:
+
+| Field | Type | Required | Validation |
+| --- | --- | --- | --- |
+| `origin` | object | Yes | Must contain `lat` and `lng`. |
+| `origin.lat` | number | Yes | Latitude from `-90` to `90`. |
+| `origin.lng` | number | Yes | Longitude from `-180` to `180`. |
+| `destination` | object | Yes | Must contain `lat` and `lng`. |
+| `destination.lat` | number | Yes | Latitude from `-90` to `90`. |
+| `destination.lng` | number | Yes | Longitude from `-180` to `180`. |
+
+Example request:
+
+```bash
+curl --request POST http://localhost:3000/api/routes/fastest \
+  --header "Content-Type: application/json" \
+  --data '{
+    "origin": { "lat": 41.6488, "lng": -0.8891 },
+    "destination": { "lat": 41.656, "lng": -0.878 }
+  }'
+```
+
+Equivalent request body:
+
 ```json
 {
   "origin": { "lat": 41.6488, "lng": -0.8891 },
@@ -77,9 +106,57 @@ Automated tests mock external requests.
 }
 ```
 
-Returns `{ "route": { "geometry", "distance", "duration" } }`, where geometry is
-a GeoJSON `LineString`, distance is expressed in metres and duration in seconds.
-Missing, non-numeric or out-of-range coordinates return 400.
+### Successful response
+
+The endpoint returns `200 OK` with the normalized route:
+
+```json
+{
+  "route": {
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-0.8891, 41.6488],
+        [-0.884, 41.652],
+        [-0.878, 41.656]
+      ]
+    },
+    "distance": 1250.4,
+    "duration": 930.2
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `route.geometry` | GeoJSON `LineString`. Each position uses `[longitude, latitude]`. |
+| `route.distance` | Total route distance in metres. |
+| `route.duration` | Estimated walking duration in seconds. |
+
+### Error responses
+
+All errors use the following shape:
+
+```json
+{
+  "error": {
+    "message": "Route calculation timed out. Please try again."
+  }
+}
+```
+
+| Status | Meaning |
+| --- | --- |
+| `400 Bad Request` | Origin or destination is missing, non-numeric or outside the valid latitude/longitude ranges. |
+| `429 Too Many Requests` | The OpenRouteService quota has been exceeded. |
+| `502 Bad Gateway` | OpenRouteService is unavailable or returned an invalid response. |
+| `503 Service Unavailable` | Route calculation is not configured because the server has no ORS API key. |
+| `504 Gateway Timeout` | OpenRouteService did not answer within the 8-second timeout. |
+| `500 Internal Server Error` | An unexpected internal error occurred. |
+
+Provider response bodies, internal error details and API credentials are never included
+in responses. Automated tests use a simulated OpenRouteService response and do not spend
+provider quota.
 
 From the workspace root, `docker compose up` loads `backend/.env` using `env_file`.
 Create that ignored file from `.env.example` before starting Compose; do not overwrite
