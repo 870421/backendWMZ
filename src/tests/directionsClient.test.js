@@ -26,24 +26,34 @@ describe('OpenRouteService directions adapter', () => {
       ok: true,
       json: async () => ({
         type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: [[-0.8891, 41.6488], [-0.884, 41.652], [-0.878, 41.656]]
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-0.8891, 41.6488],
+                [-0.884, 41.652],
+                [-0.878, 41.656],
+              ],
+            },
+            properties: { summary: { distance: 1250.4, duration: 930.2 } },
           },
-          properties: { summary: { distance: 1250.4, duration: 930.2 } }
-        }]
-      })
+        ],
+      }),
     });
 
     await expect(getFastestWalkingRoute({ origin, destination })).resolves.toEqual({
       geometry: {
         type: 'LineString',
-        coordinates: [[-0.8891, 41.6488], [-0.884, 41.652], [-0.878, 41.656]]
+        coordinates: [
+          [-0.8891, 41.6488],
+          [-0.884, 41.652],
+          [-0.878, 41.656],
+        ],
       },
       distance: 1250.4,
-      duration: 930.2
+      duration: 930.2,
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -52,18 +62,26 @@ describe('OpenRouteService directions adapter', () => {
     expect(options.method).toBe('POST');
     expect(options.headers.Authorization).toBe('test-key');
     expect(options.headers['Content-Type']).toBe('application/json');
-    expect(options.body).toBe(JSON.stringify({
-      coordinates: [[-0.8891, 41.6488], [-0.878, 41.656]],
-      preference: 'fastest',
-      instructions: false
-    }));
+    expect(options.body).toBe(
+      JSON.stringify({
+        coordinates: [
+          [-0.8891, 41.6488],
+          [-0.878, 41.656],
+        ],
+        preference: 'fastest',
+        instructions: false,
+      })
+    );
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('rejects invalid coordinates before calling the provider', async () => {
-    await expect(getFastestWalkingRoute({
-      origin: { lat: 100, lng: -0.8891 }, destination
-    })).rejects.toMatchObject({ status: 400, message: 'Route coordinates are invalid.' });
+    await expect(
+      getFastestWalkingRoute({
+        origin: { lat: 100, lng: -0.8891 },
+        destination,
+      })
+    ).rejects.toMatchObject({ status: 400, message: 'Route coordinates are invalid.' });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -71,7 +89,7 @@ describe('OpenRouteService directions adapter', () => {
     env.openRouteServiceApiKey = '';
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 503,
-      message: 'Route calculation is not configured.'
+      message: 'Route calculation is not configured.',
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -80,12 +98,15 @@ describe('OpenRouteService directions adapter', () => {
     [401, 502, 'Route provider is unavailable.'],
     [403, 502, 'Route provider is unavailable.'],
     [429, 429, 'Route provider quota has been exceeded. Please try again shortly.'],
-    [500, 502, 'Route provider is unavailable.']
+    [500, 502, 'Route provider is unavailable.'],
   ])('maps provider status %s to controlled status %s', async (providerStatus, status, message) => {
     const json = jest.fn(async () => ({ sensitive: 'provider body' }));
     global.fetch.mockResolvedValue({ ok: false, status: providerStatus, json });
 
-    await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({ status, message });
+    await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
+      status,
+      message,
+    });
     expect(json).not.toHaveBeenCalled();
   });
 
@@ -96,37 +117,63 @@ describe('OpenRouteService directions adapter', () => {
     { type: 'FeatureCollection', features: [{}] },
     {
       type: 'FeatureCollection',
-      features: [{
-        geometry: { type: 'Point', coordinates: [-0.8891, 41.6488] },
-        properties: { summary: { distance: 1, duration: 1 } }
-      }]
+      features: [
+        {
+          geometry: { type: 'Point', coordinates: [-0.8891, 41.6488] },
+          properties: { summary: { distance: 1, duration: 1 } },
+        },
+      ],
     },
     {
       type: 'FeatureCollection',
-      features: [{
-        geometry: { type: 'LineString', coordinates: [[-0.8891, 41.6488], ['bad', 41.656]] },
-        properties: { summary: { distance: 1, duration: 1 } }
-      }]
+      features: [
+        {
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [-0.8891, 41.6488],
+              ['bad', 41.656],
+            ],
+          },
+          properties: { summary: { distance: 1, duration: 1 } },
+        },
+      ],
     },
     {
       type: 'FeatureCollection',
-      features: [{
-        geometry: { type: 'LineString', coordinates: [[-0.8891, 41.6488], [-0.878, 41.656]] },
-        properties: { summary: { distance: -1, duration: 1 } }
-      }]
+      features: [
+        {
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [-0.8891, 41.6488],
+              [-0.878, 41.656],
+            ],
+          },
+          properties: { summary: { distance: -1, duration: 1 } },
+        },
+      ],
     },
     {
       type: 'FeatureCollection',
-      features: [{
-        geometry: { type: 'LineString', coordinates: [[-0.8891, 41.6488], [-0.878, 41.656]] },
-        properties: { summary: { distance: 1 } }
-      }]
-    }
+      features: [
+        {
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [-0.8891, 41.6488],
+              [-0.878, 41.656],
+            ],
+          },
+          properties: { summary: { distance: 1 } },
+        },
+      ],
+    },
   ])('rejects malformed provider data without exposing it', async (body) => {
     global.fetch.mockResolvedValue({ ok: true, json: async () => body });
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Invalid route provider response.'
+      message: 'Invalid route provider response.',
     });
   });
 
@@ -135,29 +182,34 @@ describe('OpenRouteService directions adapter', () => {
       .mockRejectedValueOnce(new Error('test-key and sensitive provider details'))
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => { throw new Error('sensitive invalid JSON'); }
+        json: async () => {
+          throw new Error('sensitive invalid JSON');
+        },
       });
 
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Route provider is unavailable.'
+      message: 'Route provider is unavailable.',
     });
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Route provider is unavailable.'
+      message: 'Route provider is unavailable.',
     });
   });
 
   it('aborts slow provider calls', async () => {
     jest.useFakeTimers();
-    global.fetch.mockImplementation((_url, { signal }) => new Promise((_resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new Error('aborted')));
-    }));
+    global.fetch.mockImplementation(
+      (_url, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('aborted')));
+        })
+    );
 
     const result = getFastestWalkingRoute({ origin, destination });
     const assertion = expect(result).rejects.toMatchObject({
       status: 504,
-      message: 'Route calculation timed out. Please try again.'
+      message: 'Route calculation timed out. Please try again.',
     });
     await jest.advanceTimersByTimeAsync(8000);
     await assertion;

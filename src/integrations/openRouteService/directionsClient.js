@@ -10,8 +10,7 @@ function normalizePoint(point) {
   const lat = point?.lat;
   const lng = point?.lng;
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
-      Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     throw providerError(400, 'Route coordinates are invalid.');
   }
 
@@ -19,14 +18,18 @@ function normalizePoint(point) {
 }
 
 function normalizeGeometry(geometry) {
-  if (geometry?.type !== 'LineString' || !Array.isArray(geometry.coordinates) ||
-      geometry.coordinates.length < 2) return null;
+  if (
+    geometry?.type !== 'LineString' ||
+    !Array.isArray(geometry.coordinates) ||
+    geometry.coordinates.length < 2
+  )
+    return null;
 
   const coordinates = geometry.coordinates.map((coordinate) => {
     if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
     const [lng, lat] = coordinate;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
-        Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
+      return null;
     return [lng, lat];
   });
 
@@ -35,16 +38,26 @@ function normalizeGeometry(geometry) {
 }
 
 function normalizeRoute(data) {
-  if (data?.type !== 'FeatureCollection' || !Array.isArray(data.features) ||
-      data.features.length === 0) return null;
+  if (
+    data?.type !== 'FeatureCollection' ||
+    !Array.isArray(data.features) ||
+    data.features.length === 0
+  )
+    return null;
 
   const route = data.features[0];
   const geometry = normalizeGeometry(route?.geometry);
   const distance = route?.properties?.summary?.distance;
   const duration = route?.properties?.summary?.duration;
 
-  if (!geometry || !Number.isFinite(distance) || distance < 0 ||
-      !Number.isFinite(duration) || duration < 0) return null;
+  if (
+    !geometry ||
+    !Number.isFinite(distance) ||
+    distance < 0 ||
+    !Number.isFinite(duration) ||
+    duration < 0
+  )
+    return null;
 
   return { geometry, distance, duration };
 }
@@ -66,14 +79,14 @@ async function getFastestWalkingRoute({ origin, destination }) {
       headers: {
         Accept: 'application/geo+json',
         Authorization: env.openRouteServiceApiKey,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         coordinates,
         preference: 'fastest',
-        instructions: false
+        instructions: false,
       }),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!response.ok) {

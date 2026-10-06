@@ -1,9 +1,15 @@
 const { getFastestWalkingRoute } = require('../../integrations/openRouteService/directionsClient');
 
 function isValidPoint(point) {
-  return point !== null && typeof point === 'object' && !Array.isArray(point) &&
-    Number.isFinite(point.lat) && Math.abs(point.lat) <= 90 &&
-    Number.isFinite(point.lng) && Math.abs(point.lng) <= 180;
+  return (
+    point !== null &&
+    typeof point === 'object' &&
+    !Array.isArray(point) &&
+    Number.isFinite(point.lat) &&
+    Math.abs(point.lat) <= 90 &&
+    Number.isFinite(point.lng) &&
+    Math.abs(point.lng) <= 180
+  );
 }
 
 async function calculateFastestRoute({ origin, destination } = {}) {
@@ -17,7 +23,7 @@ async function calculateFastestRoute({ origin, destination } = {}) {
 
   return getFastestWalkingRoute({
     origin: { lat: origin.lat, lng: origin.lng },
-    destination: { lat: destination.lat, lng: destination.lng }
+    destination: { lat: destination.lat, lng: destination.lng },
   });
 }
 

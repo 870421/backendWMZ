@@ -31,15 +31,15 @@ describe('GET /api/geocoding/autocomplete', () => {
           {
             geometry: {
               type: 'Point',
-              coordinates: [-0.878, 41.656]
+              coordinates: [-0.878, 41.656],
             },
             properties: {
               gid: 'pelias:venue:1',
-              label: 'Plaza del Pilar, Zaragoza, Spain'
-            }
-          }
-        ]
-      })
+              label: 'Plaza del Pilar, Zaragoza, Spain',
+            },
+          },
+        ],
+      }),
     });
 
     const response = await request(createApp()).get(
@@ -53,8 +53,8 @@ describe('GET /api/geocoding/autocomplete', () => {
         label: 'Plaza del Pilar, Zaragoza, Spain',
         lat: 41.656,
         lng: -0.878,
-        source: 'search'
-      }
+        source: 'search',
+      },
     ]);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch.mock.calls[0][1].headers.Authorization).toBe('test-key');

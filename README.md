@@ -35,6 +35,42 @@ npm test
 npm run check
 ```
 
+## Lint
+
+```bash
+npm run lint
+```
+
+ESLint checks the project using an Airbnb-compatible flat configuration for modern
+ESLint versions.
+
+## Format
+
+Format the project automatically with Prettier:
+
+```bash
+npm run format
+```
+
+Check formatting without changing files:
+
+```bash
+npm run format:check
+```
+
+## Continuous integration
+
+Run the same checks used by GitHub Actions locally with:
+
+```bash
+npm run ci
+```
+
+This command runs ESLint, checks Prettier formatting, runs the Node.js syntax check
+and executes the complete Jest suite.
+The GitHub Actions workflow runs automatically for every pull request targeting
+`main`. OpenRouteService is mocked in tests, so CI does not require `ORS_API_KEY`.
+
 ## Production Start
 
 ```bash
@@ -77,14 +113,14 @@ does not take shade, sun, wind or other comfort factors into account.
 
 Send a JSON body with the following fields:
 
-| Field | Type | Required | Validation |
-| --- | --- | --- | --- |
-| `origin` | object | Yes | Must contain `lat` and `lng`. |
-| `origin.lat` | number | Yes | Latitude from `-90` to `90`. |
-| `origin.lng` | number | Yes | Longitude from `-180` to `180`. |
-| `destination` | object | Yes | Must contain `lat` and `lng`. |
-| `destination.lat` | number | Yes | Latitude from `-90` to `90`. |
-| `destination.lng` | number | Yes | Longitude from `-180` to `180`. |
+| Field             | Type   | Required | Validation                      |
+| ----------------- | ------ | -------- | ------------------------------- |
+| `origin`          | object | Yes      | Must contain `lat` and `lng`.   |
+| `origin.lat`      | number | Yes      | Latitude from `-90` to `90`.    |
+| `origin.lng`      | number | Yes      | Longitude from `-180` to `180`. |
+| `destination`     | object | Yes      | Must contain `lat` and `lng`.   |
+| `destination.lat` | number | Yes      | Latitude from `-90` to `90`.    |
+| `destination.lng` | number | Yes      | Longitude from `-180` to `180`. |
 
 Example request:
 
@@ -127,11 +163,11 @@ The endpoint returns `200 OK` with the normalized route:
 }
 ```
 
-| Field | Description |
-| --- | --- |
+| Field            | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
 | `route.geometry` | GeoJSON `LineString`. Each position uses `[longitude, latitude]`. |
-| `route.distance` | Total route distance in metres. |
-| `route.duration` | Estimated walking duration in seconds. |
+| `route.distance` | Total route distance in metres.                                   |
+| `route.duration` | Estimated walking duration in seconds.                            |
 
 ### Error responses
 
@@ -145,14 +181,14 @@ All errors use the following shape:
 }
 ```
 
-| Status | Meaning |
-| --- | --- |
-| `400 Bad Request` | Origin or destination is missing, non-numeric or outside the valid latitude/longitude ranges. |
-| `429 Too Many Requests` | The OpenRouteService quota has been exceeded. |
-| `502 Bad Gateway` | OpenRouteService is unavailable or returned an invalid response. |
-| `503 Service Unavailable` | Route calculation is not configured because the server has no ORS API key. |
-| `504 Gateway Timeout` | OpenRouteService did not answer within the 8-second timeout. |
-| `500 Internal Server Error` | An unexpected internal error occurred. |
+| Status                      | Meaning                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `400 Bad Request`           | Origin or destination is missing, non-numeric or outside the valid latitude/longitude ranges. |
+| `429 Too Many Requests`     | The OpenRouteService quota has been exceeded.                                                 |
+| `502 Bad Gateway`           | OpenRouteService is unavailable or returned an invalid response.                              |
+| `503 Service Unavailable`   | Route calculation is not configured because the server has no ORS API key.                    |
+| `504 Gateway Timeout`       | OpenRouteService did not answer within the 8-second timeout.                                  |
+| `500 Internal Server Error` | An unexpected internal error occurred.                                                        |
 
 Provider response bodies, internal error details and API credentials are never included
 in responses. Automated tests use a simulated OpenRouteService response and do not spend

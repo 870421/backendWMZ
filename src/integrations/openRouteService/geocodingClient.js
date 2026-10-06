@@ -8,13 +8,17 @@ function normalizeFeature(feature) {
   const coordinates = feature?.geometry?.coordinates;
   if (feature?.geometry?.type !== 'Point' || !Array.isArray(coordinates)) return null;
   const [lng, lat] = coordinates;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
+    return null;
   const properties = feature.properties || {};
   const label = properties.label || properties.name;
   if (typeof label !== 'string' || !label.trim()) return null;
   return {
     id: String(properties.gid || properties.id || `${lng},${lat}`),
-    label: label.trim(), lat, lng, source: 'search'
+    label: label.trim(),
+    lat,
+    lng,
+    source: 'search',
   };
 }
 
@@ -31,22 +35,30 @@ async function autocompletePlaces({ limit = 5, text }) {
   try {
     const response = await fetch(url, {
       headers: { Authorization: env.openRouteServiceApiKey },
-      signal: controller.signal
+      signal: controller.signal,
     });
     if (!response.ok) {
-      throw providerError(response.status === 429 ? 429 : 502,
-        response.status === 429 ? 'Place search is busy. Please try again shortly.' : 'Place search provider is unavailable.');
+      throw providerError(
+        response.status === 429 ? 429 : 502,
+        response.status === 429
+          ? 'Place search is busy. Please try again shortly.'
+          : 'Place search provider is unavailable.'
+      );
     }
     const data = await response.json();
     if (!Array.isArray(data?.features)) throw providerError(502, 'Invalid place search response.');
     const seen = new Set();
-    return data.features.map(normalizeFeature).filter((place) => {
-      if (!place || seen.has(place.id)) return false;
-      seen.add(place.id);
-      return true;
-    }).slice(0, limit);
+    return data.features
+      .map(normalizeFeature)
+      .filter((place) => {
+        if (!place || seen.has(place.id)) return false;
+        seen.add(place.id);
+        return true;
+      })
+      .slice(0, limit);
   } catch (error) {
-    if (controller.signal.aborted) throw providerError(504, 'Place search timed out. Please try again.');
+    if (controller.signal.aborted)
+      throw providerError(504, 'Place search timed out. Please try again.');
     if (error.status) throw error;
     // Never forward provider response bodies, URLs or credentials to clients/logs.
     throw providerError(502, 'Place search provider is unavailable.');

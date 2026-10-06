@@ -7,4 +7,3 @@ const geocodingRouter = Router();
 geocodingRouter.get('/autocomplete', getAutocomplete);
 
 module.exports = { geocodingRouter };
-
