@@ -8,11 +8,9 @@ const env = {
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   openRouteServiceApiKey: process.env.ORS_API_KEY || process.env.OPENROUTESERVICE_API_KEY || '',
   openRouteServiceGeocodingBaseUrl:
-    process.env.OPENROUTESERVICE_GEOCODING_BASE_URL ||
-    'https://api.heigit.org/pelias/v1',
+    process.env.OPENROUTESERVICE_GEOCODING_BASE_URL || 'https://api.heigit.org/pelias/v1',
   databaseUrl:
-    process.env.DATABASE_URL ||
-    'postgres://weathermapz:weathermapz@localhost:5432/weathermapz'
+    process.env.DATABASE_URL || 'postgres://weathermapz:weathermapz@localhost:5432/weathermapz'
 };
 
 module.exports = { env };

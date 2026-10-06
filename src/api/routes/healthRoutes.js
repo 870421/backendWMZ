@@ -7,4 +7,3 @@ const healthRouter = Router();
 healthRouter.get('/', getHealth);
 
 module.exports = { healthRouter };
-
