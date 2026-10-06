@@ -42,6 +42,7 @@ const building = (sourceId, geometry) => ({
   sourceId,
   heightM: 10,
   heightSource: 'measured',
+  heightSuspicious: false,
   floors: 3,
   geometry
 });
@@ -85,13 +86,15 @@ describe('import persistence (PostGIS)', () => {
     expect(run).toEqual({ source_count: 6, imported_count: 4, rejected_count: 2 });
 
     const [stored] = await sequelize.query(
-      `SELECT height_m, height_source, floors, GeometryType(geom) AS type, ST_SRID(geom) AS srid
+      `SELECT height_m, height_source, height_suspicious, floors, GeometryType(geom) AS type,
+              ST_SRID(geom) AS srid
        FROM buildings WHERE source_id = 'TEST.IMPLAUSIBLE'`,
       { type: 'SELECT' }
     );
     expect(stored).toEqual({
       height_m: 13,
       height_source: 'floors_estimate',
+      height_suspicious: false,
       floors: 4,
       type: 'MULTIPOLYGON',
       srid: 4326

@@ -137,7 +137,7 @@
         "num_unidades": 1,
         "vigencia": "2026-10-01",
         "storeys_above_ground": 4,
-        "measured_height": 30,
+        "measured_height": 300,
         "function": "2_agriculture",
         "year_of_construction": null
       }

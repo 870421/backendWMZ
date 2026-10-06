@@ -23,6 +23,7 @@ describe('mapBuildingFeature', () => {
         sourceId: 'ES.SDGC.BU.3512704XM8231D01',
         heightM: 4.9,
         heightSource: 'measured',
+        heightSuspicious: false,
         floors: 1,
         geometry: expect.objectContaining({ type: 'MultiPolygon' })
       })
@@ -34,11 +35,25 @@ describe('mapBuildingFeature', () => {
     const result = mapBuildingFeature(byId(buildings, 'building.implausible'), options);
 
     expect(result.records[0]).toMatchObject({ heightM: 13, heightSource: 'floors_estimate' });
-    expect(result.warnings[0]).toContain('height_per_floor_out_of_range');
+    expect(result.warnings[0]).toContain('height_above_max');
     expect(result.stats).toEqual({
       'height_source:floors_estimate': 1,
-      'height_fallback:height_per_floor_out_of_range': 1
+      'height_fallback:height_above_max': 1
     });
+  });
+
+  it('keeps a tall single-storey measured height', () => {
+    const result = mapBuildingFeature(
+      byId(buildings, 'building.fid-24380387_1a111c80fd9_1512'),
+      options
+    );
+
+    expect(result.records[0]).toMatchObject({
+      heightM: 14.6,
+      heightSource: 'measured',
+      heightSuspicious: false
+    });
+    expect(result.warnings).toEqual([]);
   });
 
   it('keeps multipolygons and estimates height from floors when it is missing', () => {
