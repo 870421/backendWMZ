@@ -15,7 +15,13 @@
     "db:up": "docker compose up -d db",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:test": "sequelize-cli db:migrate --env test",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo"
+    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "import:buildings": "node src/integrations/idezar/importBuildings.js",
+    "import:trees": "node src/integrations/idezar/importTrees.js",
+    "import:streets": "node src/integrations/osm/importStreets.js",
+    "import:all": "node src/integrations/importAll.js",
+    "test:integration": "jest --config jest.integration.config.js --coverage",
+    "test:all": "jest --config jest.all.config.js --coverage"
   },
   "dependencies": {
     "cors": "^2.8.5",
