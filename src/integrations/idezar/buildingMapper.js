@@ -26,12 +26,14 @@ function mapBuildingFeature(feature, { bbox, heightConfig }) {
         sourceId,
         heightM: height.heightM,
         heightSource: height.heightSource,
+        heightSuspicious: height.heightSuspicious,
         floors: height.floors,
         geometry: toMultiPolygon(feature.geometry)
       }
     ],
     stats: {
       [`height_source:${height.heightSource}`]: 1,
+      ...(height.heightSuspicious && { height_suspicious: 1 }),
       ...(height.fallbackReason && { [`height_fallback:${height.fallbackReason}`]: 1 })
     },
     warnings

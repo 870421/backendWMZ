@@ -9,7 +9,8 @@ const UPSERT_SQL = {
   buildings: `
     WITH input AS (
       SELECT * FROM jsonb_to_recordset(CAST(:rows AS jsonb)) AS r(
-        item_id text, source_id text, height_m float8, height_source text, floors int,
+        item_id text, source_id text, height_m float8, height_source text, height_suspicious boolean,
+        floors int,
         geometry jsonb)
     ), prepared AS (
       SELECT *, ${INPUT_GEOMETRY} AS g FROM input
@@ -18,11 +19,13 @@ const UPSERT_SQL = {
         ST_Multi(ST_CollectionExtract(ST_MakeValid(g), 3)) AS mg
       FROM prepared
     ), upserted AS (
-      INSERT INTO buildings (source, source_id, height_m, height_source, floors, geom, import_run_id)
-      SELECT :source, source_id, height_m, height_source, floors, mg, :runId
+      INSERT INTO buildings
+        (source, source_id, height_m, height_source, height_suspicious, floors, geom, import_run_id)
+      SELECT :source, source_id, height_m, height_source, height_suspicious, floors, mg, :runId
       FROM fixed WHERE NOT ST_IsEmpty(mg)
       ON CONFLICT (source, source_id) DO UPDATE SET
         height_m = EXCLUDED.height_m, height_source = EXCLUDED.height_source,
+        height_suspicious = EXCLUDED.height_suspicious,
         floors = EXCLUDED.floors, geom = EXCLUDED.geom, import_run_id = EXCLUDED.import_run_id
       RETURNING 1
     )
@@ -76,6 +79,7 @@ function toRow(record) {
     source_id: record.sourceId,
     height_m: record.heightM,
     height_source: record.heightSource,
+    height_suspicious: record.heightSuspicious,
     floors: record.floors,
     species: record.species,
     crown_diameter_m: record.crownDiameterM,

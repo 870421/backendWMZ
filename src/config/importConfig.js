@@ -21,14 +21,24 @@ const importConfig = {
     maxLng: -0.6849645835987654,
     maxLat: 41.81025542204428
   },
+  // Building height rule; every threshold is explained in docs/DECISIONS.md.
   height: {
+    // Estimate used when the measured height is wrong: storeys × floorHeightM + groundFloorExtraM.
     floorHeightM: numberFromEnv('BUILDING_FLOOR_HEIGHT_M', 3),
     groundFloorExtraM: numberFromEnv('BUILDING_GROUND_FLOOR_EXTRA_M', 1),
+    // Used only when there is neither a usable measured height nor a storey count.
     defaultHeightM: numberFromEnv('BUILDING_DEFAULT_HEIGHT_M', 4),
-    minPlausibleM: numberFromEnv('BUILDING_MIN_PLAUSIBLE_HEIGHT_M', 2),
-    maxPlausibleM: numberFromEnv('BUILDING_MAX_PLAUSIBLE_HEIGHT_M', 150),
-    minPerFloorM: numberFromEnv('BUILDING_MIN_HEIGHT_PER_FLOOR_M', 2.5),
-    maxPerFloorM: numberFromEnv('BUILDING_MAX_HEIGHT_PER_FLOOR_M', 6)
+    // A measured height outside [min, max] is wrong for any building.
+    minHeightM: numberFromEnv('BUILDING_MIN_HEIGHT_M', 2),
+    maxHeightM: numberFromEnv('BUILDING_MAX_HEIGHT_M', 150),
+    // Buildings with 2+ storeys: height per storey outside [min, max] is wrong.
+    minHeightPerFloorM: numberFromEnv('BUILDING_MIN_HEIGHT_PER_FLOOR_M', 2),
+    maxHeightPerFloorM: numberFromEnv('BUILDING_MAX_HEIGHT_PER_FLOOR_M', 8),
+    // Buildings with 1 storey (or unknown): accepted up to this height.
+    maxSingleStoreyHeightM: numberFromEnv('BUILDING_MAX_SINGLE_STOREY_HEIGHT_M', 40),
+    // Accepted heights above these values are kept but flagged as height_suspicious.
+    suspiciousSingleStoreyHeightM: numberFromEnv('BUILDING_SUSPICIOUS_SINGLE_STOREY_HEIGHT_M', 15),
+    suspiciousHeightPerFloorM: numberFromEnv('BUILDING_SUSPICIOUS_HEIGHT_PER_FLOOR_M', 6)
   }
 };
 

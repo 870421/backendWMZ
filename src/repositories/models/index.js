@@ -40,6 +40,7 @@ const Building = sequelize.define(
     sourceId: { type: DataTypes.TEXT, allowNull: false },
     heightM: { type: DataTypes.DOUBLE, allowNull: false },
     heightSource: { type: DataTypes.STRING(20), allowNull: false },
+    heightSuspicious: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     floors: DataTypes.SMALLINT,
     geom: { type: DataTypes.GEOMETRY('MULTIPOLYGON', 4326), allowNull: false },
     importRunId: DataTypes.INTEGER
