@@ -66,6 +66,21 @@ quota limits, 504 for the 8-second provider timeout, and 502 for provider/networ
 invalid-response failures. Provider bodies and credentials are never forwarded.
 Automated tests mock external requests.
 
+## PBI-2 fastest route contract
+
+`POST /api/routes/fastest`
+
+```json
+{
+  "origin": { "lat": 41.6488, "lng": -0.8891 },
+  "destination": { "lat": 41.656, "lng": -0.878 }
+}
+```
+
+Returns `{ "route": { "geometry", "distance", "duration" } }`, where geometry is
+a GeoJSON `LineString`, distance is expressed in metres and duration in seconds.
+Missing, non-numeric or out-of-range coordinates return 400.
+
 From the workspace root, `docker compose up` loads `backend/.env` using `env_file`.
 Create that ignored file from `.env.example` before starting Compose; do not overwrite
 an existing key. The frontend reaches the API through Vite's development proxy.
