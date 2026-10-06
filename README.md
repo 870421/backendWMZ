@@ -49,6 +49,7 @@ npm start
 - `DATABASE_URL`: PostgreSQL/PostGIS connection string.
 - `ORS_API_KEY`: OpenRouteService / HeiGIT API key used by geocoding autocomplete. Keep it only in the ignored `backend/.env` or server environment. `OPENROUTESERVICE_API_KEY` remains a fallback for older setups.
 - `OPENROUTESERVICE_GEOCODING_BASE_URL`: geocoding API base URL. Default local value: `https://api.heigit.org/pelias/v1`.
+- `OPENROUTESERVICE_DIRECTIONS_BASE_URL`: directions API base URL. Default local value: `https://api.openrouteservice.org/v2/directions`.
 
 ## PBI-1 autocomplete contract
 

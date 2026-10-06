@@ -10,6 +10,9 @@ const env = {
   openRouteServiceGeocodingBaseUrl:
     process.env.OPENROUTESERVICE_GEOCODING_BASE_URL ||
     'https://api.heigit.org/pelias/v1',
+  openRouteServiceDirectionsBaseUrl:
+    process.env.OPENROUTESERVICE_DIRECTIONS_BASE_URL ||
+    'https://api.openrouteservice.org/v2/directions',
   databaseUrl:
     process.env.DATABASE_URL ||
     'postgres://weathermapz:weathermapz@localhost:5432/weathermapz'
