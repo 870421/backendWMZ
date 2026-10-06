@@ -21,7 +21,7 @@ const importConfig = {
     maxLng: -0.6849645835987654,
     maxLat: 41.81025542204428
   },
-  // Building height rule; every threshold is explained in docs/DECISIONS.md.
+  // Building height rule; every threshold is explained in ADR-001 (workspace docs/DECISIONS.md).
   height: {
     // Estimate used when the measured height is wrong: storeys × floorHeightM + groundFloorExtraM.
     floorHeightM: numberFromEnv('BUILDING_FLOOR_HEIGHT_M', 3),

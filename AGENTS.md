@@ -1,9 +1,9 @@
-# WeatherMapZ Backend - Codex Instructions
+# WeatherMapZ Backend - Instrucciones para Codex
 
-This repository contains the WeatherMapZ backend.
+Este repositorio contiene el backend de WeatherMapZ.
 
-Before substantial changes, read the global WeatherMapZ documentation,
-especially:
+Antes de hacer cambios importantes, lee la documentación global de WeatherMapZ,
+sobre todo:
 
 - docs/ARCHITECTURE.md
 - docs/DATA_SOURCES.md
@@ -23,120 +23,121 @@ Testing:
 - Jest
 - Supertest
 
-## Responsibilities
+## Responsabilidades
 
-The backend handles:
+El backend se encarga de:
 
-- REST API
-- routing
-- comfort calculations
-- geographic processing
-- database access
-- weather integration
-- shadow/sun calculations
-- wind exposure
-- external API integrations
+- API REST
+- cálculo de rutas
+- cálculos de confort
+- procesamiento geográfico
+- acceso a la base de datos
+- integración meteorológica
+- cálculos de sol/sombra
+- exposición al viento
+- integraciones con APIs externas
 
-## Architecture
+## Arquitectura
 
-Keep clear separation between:
+Mantén una separación clara entre:
 
 HTTP/API
     ↓
-Application/services
+Aplicación/servicios
     ↓
-Domain/business logic
+Dominio/lógica de negocio
     ↓
-Repositories/integrations
+Repositorios/integraciones
     ↓
-PostgreSQL/PostGIS / external APIs
+PostgreSQL/PostGIS / APIs externas
 
-Do not place complex business logic inside Express controllers.
+No pongas lógica de negocio compleja dentro de los controladores de Express.
 
 ## GIS
 
-Use PostgreSQL/PostGIS for appropriate spatial operations.
+Usa PostgreSQL/PostGIS para las operaciones espaciales que corresponda.
 
-Avoid inefficient geographic processing in JavaScript when PostGIS
-provides an appropriate operation.
+Evita el procesamiento geográfico ineficiente en JavaScript cuando PostGIS
+ofrezca una operación adecuada.
 
-## External integrations
+## Integraciones externas
 
-Keep external providers isolated behind services/adapters.
+Mantén los proveedores externos aislados detrás de servicios/adaptadores.
 
-Potential integrations:
+Integraciones posibles:
 
 - OpenRouteService
 - Open-Meteo
 - IDEZAR
 - OpenStreetMap
 
-Core business logic should not depend directly on provider-specific
-response formats when avoidable.
+La lógica de negocio principal no debe depender directamente de los
+formatos de respuesta de cada proveedor cuando se pueda evitar.
 
-## Routing
+## Cálculo de rutas
 
-The routing model must balance travel time and climatic comfort.
+El modelo de rutas debe equilibrar el tiempo de viaje y el confort climático.
 
-Potential factors:
+Factores posibles:
 
-- time
-- distance
-- shade
-- sun
-- temperature
-- wind
-- vegetation
+- tiempo
+- distancia
+- sombra
+- sol
+- temperatura
+- viento
+- vegetación
 
-The final cost function and weights are NOT defined.
+La función de coste final y sus pesos NO están definidos.
 
-Do not invent them.
+No te los inventes.
 
-## Unresolved data
+## Datos sin resolver
 
-Never assume the meaning of `Alturas_Edificios.etiqueta`.
+Nunca supongas el significado de `Alturas_Edificios.etiqueta`.
 
-Never assume Zaragoza's shadow calculations are publicly accessible.
+Nunca supongas que los cálculos de sombras de Zaragoza son accesibles públicamente.
 
-Check `docs/DECISIONS.md` before implementing functionality depending on
-an unresolved question.
+Consulta `docs/DECISIONS.md` antes de implementar funcionalidad que dependa de
+una cuestión sin resolver.
 
 ## Testing
 
-Routing/domain logic should be testable independently from Express and
-external APIs.
+La lógica de rutas y de dominio debe poder probarse sin Express ni APIs
+externas.
 
-Use Jest and Supertest where appropriate.
+Usa Jest y Supertest donde corresponda.
 
-Minimum automated coverage: 50%.
-Target: 75%.
+Cobertura automática mínima: 50 %.
+Objetivo: 75 %.
 
-## Configuration
+## Configuración
 
-Never hardcode:
+Nunca escribas directamente en el código:
 
-- credentials
-- API keys
-- database passwords
-- environment-specific configuration
+- credenciales
+- claves de API
+- contraseñas de bases de datos
+- configuración específica de un entorno
 
-Use environment variables and maintain `.env.example`.
+Usa variables de entorno y mantén `.env.example`.
 
 ## Documentación obligatoria por PBI
 
-- When a PBI is finished, and before opening its pull request, add its entry at the top of the
-  "Registro de PBIs" in `docs/DECISIONS.md`, with: title, date, branch and status (En revisión /
-  Fusionada #N); what was done, in plain language; the satisfaction conditions checked, with where
-  each one is verified (test, command or query); real data and results; technical changes
-  (tables, migrations, npm commands, environment variables, endpoints); links to the ADRs taken;
-  pending items and risks for later PBIs; and how to verify it by hand.
-- Record every non-obvious technical decision as a new ADR in the same file. If a decision
-  changes, add a new ADR and mark the previous one as "Sustituido por ADR-00X". Never delete the
-  history.
-- Update EVERY Markdown file affected by the change: `DATA_SOURCES.md` if sources or data change,
-  `README.md` if start-up, environment variables, commands, schema or the manual checklist change,
-  and the API documentation if endpoints change.
-- Before closing the PBI, grep all Markdown files for the terms and figures that changed, so no
-  outdated information is left anywhere.
-- The pull request description lives in `PR-<pbi>.md` (local only, ignored by Git) and is a short
-  summary that links to the PBI entry in `docs/DECISIONS.md`.
+- Al terminar cada PBI, y antes de abrir su pull request, añade su entrada al principio del
+  "Registro de PBIs" del `docs/DECISIONS.md` del workspace (documentación global, fuera de este
+  repositorio), con: título, fecha, rama y estado (En revisión / Fusionada #N); qué se ha hecho,
+  en lenguaje claro; las condiciones de satisfacción marcadas, con dónde se comprueba cada una
+  (test, comando o query); los datos y resultados reales; los cambios técnicos (tablas,
+  migraciones, comandos npm, variables de entorno, endpoints); enlaces a los ADR tomados; lo
+  pendiente y los riesgos para siguientes PBIs; y cómo verificarlo a mano.
+- Registra cada decisión técnica no obvia como un ADR nuevo en el mismo fichero. Si una decisión
+  cambia, añade un ADR nuevo y marca el anterior como "Sustituido por ADR-00X". Nunca borres el
+  histórico.
+- Actualiza TODOS los ficheros Markdown afectados por el cambio: `DATA_SOURCES.md` si cambian
+  fuentes o datos, `README.md` si cambian el arranque, las variables de entorno, los comandos, el
+  esquema o la checklist manual, y la documentación de la API si cambian endpoints.
+- Antes de cerrar la PBI, haz un grep en todos los ficheros Markdown de los términos y cifras que
+  hayan cambiado, para no dejar información desactualizada en ninguno.
+- La descripción del pull request va en `PR-<pbi>.md` (solo en local, ignorado por Git) y es un
+  resumen breve que enlaza a la entrada de la PBI en el `docs/DECISIONS.md` del workspace.

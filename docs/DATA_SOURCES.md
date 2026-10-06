@@ -1,103 +1,107 @@
-# WeatherMapZ Backend - Data Sources
+# WeatherMapZ Backend - Fuentes de datos
 
-Sources used by the PBI-3 imports (`npm run import:all`). Endpoints, counts and fields were
-verified against the live services on 2026-10-06. Re-check them before relying on these numbers.
+Fuentes usadas por los imports de la PBI-3 (`npm run import:all`). Los endpoints, conteos y campos
+se verificaron contra los servicios reales el 2026-10-06. Vuelve a comprobarlos antes de fiarte de
+estas cifras.
 
-## Attribution (mandatory)
+## Atribución (obligatoria)
 
-Any product or document that shows these data must include:
+Cualquier producto o documento que muestre estos datos debe incluir:
 
 - "Origen de los datos: Ayuntamiento de Zaragoza (IDEZAR), edificios: vigencia 2026-10-01;
   arbolado: inventario 2022 (capa `arboles_2022`)"
 - "© OpenStreetMap contributors, ODbL"
 
-## Summary
+## Resumen
 
-| Dataset | Source | Layer / query | Elements (source) | Native CRS | Licence |
+| Dataset | Fuente | Capa / consulta | Elementos (fuente) | CRS nativo | Licencia |
 | --- | --- | --- | --- | --- | --- |
-| Buildings | IDEZAR WFS | `citygml3d:building` | 38,963 | EPSG:25830 | Ayuntamiento de Zaragoza reuse conditions |
-| Trees | IDEZAR WFS | `idezar_base:arboles_2022` | 172,543 | EPSG:25830 | Ayuntamiento de Zaragoza reuse conditions |
-| Pedestrian network | OpenStreetMap (Overpass API) | walkable `highway` ways in the municipality | 44,676 ways (91,872 segments imported) | EPSG:4326 | ODbL 1.0 |
+| Edificios | WFS de IDEZAR | `citygml3d:building` | 38.963 | EPSG:25830 | Condiciones de reutilización del Ayuntamiento de Zaragoza |
+| Árboles | WFS de IDEZAR | `idezar_base:arboles_2022` | 172.543 | EPSG:25830 | Condiciones de reutilización del Ayuntamiento de Zaragoza |
+| Red peatonal | OpenStreetMap (API Overpass) | vías `highway` transitables a pie dentro del término municipal | 44.676 vías (91.872 tramos importados) | EPSG:4326 | ODbL 1.0 |
 
-All imports request or receive WGS84 coordinates and store them in EPSG:4326.
+Todos los imports piden o reciben coordenadas WGS84 y las guardan en EPSG:4326.
 
-## IDEZAR WFS (Ayuntamiento de Zaragoza)
+## WFS de IDEZAR (Ayuntamiento de Zaragoza)
 
 - Endpoint: `https://idezar-sig.zaragoza.es/servicios/geoserver/wfs` (GeoServer, WFS 2.0.0).
-  Capabilities report `Fees: NONE` and `AccessConstraints: NONE`; no API key is needed.
-- Output used: `outputFormat=application/json`, `srsName=EPSG:4326`.
-- Paging: `startIndex`/`count` with `sortBy` on the layer identifier (`ImplementsResultPaging`
-  is `TRUE`; `CountDefault` is 1,000,000). The first page's `numberMatched` is the source count.
-- Reuse conditions: the catalogue links to the City Council's legal notice. They are not a
-  standard licence; they allow commercial and non-commercial reuse provided that the source is
-  cited ("Origen de los datos: Ayuntamiento de Zaragoza"), the last update date is mentioned,
-  the meaning of the data is not distorted and no municipal endorsement is implied.
+  Las capabilities indican `Fees: NONE` y `AccessConstraints: NONE`; no hace falta clave de API.
+- Salida usada: `outputFormat=application/json`, `srsName=EPSG:4326`.
+- Paginación: `startIndex`/`count` con `sortBy` por el identificador de la capa
+  (`ImplementsResultPaging` es `TRUE`; `CountDefault` es 1.000.000). El `numberMatched` de la
+  primera página es el número de elementos de la fuente.
+- Condiciones de reutilización: el catálogo enlaza al aviso legal del Ayuntamiento. No son una
+  licencia estándar; permiten la reutilización comercial y no comercial siempre que se cite la
+  fuente ("Origen de los datos: Ayuntamiento de Zaragoza"), se indique la fecha de la última
+  actualización, no se desnaturalice el sentido de los datos y no se sugiera respaldo municipal.
 
-Note: `https://idezar.zaragoza.es/geoserver` is a different GeoServer that only publishes noise
-and density layers. It does not contain buildings or trees.
+Nota: `https://idezar.zaragoza.es/geoserver` es otro GeoServer distinto que solo publica capas de
+ruido y densidad. No contiene edificios ni árboles.
 
-### Buildings: `citygml3d:building`
+### Edificios: `citygml3d:building`
 
-Layer abstract: "Huellas 2D de edificaciones con atributos urbanísticos (ref. catastral,
+Resumen de la capa: "Huellas 2D de edificaciones con atributos urbanísticos (ref. catastral,
 plantas, altura, uso, año). Fuente: Catastro INSPIRE BU. EPSG:25830."
 
-| Field | Use |
+| Campo | Uso |
 | --- | --- |
-| `identifier` (e.g. `ES.SDGC.BU.3512704XM8231D01`) | `buildings.source_id`, paging order |
-| `measured_height` (decimal, m) | `height_m`, unless clearly wrong (see below) |
-| `storeys_above_ground` (short) | `floors`; replacement height when `measured_height` is wrong |
-| geometry (`Polygon` / `MultiPolygon`) | `geom`, stored as `MultiPolygon` |
-| `cadastral_reference`, `function`, `year_of_construction`, `num_viviendas`, `vigencia` | not imported yet |
+| `identifier` (p. ej. `ES.SDGC.BU.3512704XM8231D01`) | `buildings.source_id`, orden de paginación |
+| `measured_height` (decimal, m) | `height_m`, salvo que sea claramente errónea (ver abajo) |
+| `storeys_above_ground` (short) | `floors`; altura de sustitución cuando `measured_height` es errónea |
+| geometría (`Polygon` / `MultiPolygon`) | `geom`, guardada como `MultiPolygon` |
+| `cadastral_reference`, `function`, `year_of_construction`, `num_viviendas`, `vigencia` | aún no se importan |
 
-`vigencia` was `2026-10-01` in every feature sampled. How `measured_height` was obtained is not
-documented by the service.
+`vigencia` valía `2026-10-01` en todos los elementos de la muestra. El servicio no documenta cómo
+se obtuvo `measured_height`.
 
-#### How `height_m` is obtained
+#### Cómo se obtiene `height_m`
 
-The measured height is kept unless it is clearly wrong. It is wrong if it is below 2 m or above
-150 m; with 2 or more storeys, if it is below 2 m or above 8 m per storey; with one storey (or no
-storey count), if it is above 40 m. A wrong or missing height is replaced by
-`storeys × 3 m + 1 m`. All limits are inclusive and configurable in `importConfig.height`. The full
-rule, with the reason for each threshold, is in
-[DECISIONS.md, ADR-001](DECISIONS.md#adr-001--building-height-buildingsheight_m).
+Se conserva la altura medida salvo que sea claramente errónea. Es errónea si está por debajo de
+2 m o por encima de 150 m; con 2 o más plantas, si queda por debajo de 2 m o por encima de 8 m por
+planta; con una planta (o sin número de plantas), si supera los 40 m. Una altura errónea o
+ausente se sustituye por `plantas × 3 m + 1 m`. Todos los límites son inclusivos y se configuran
+en `importConfig.height`. La regla completa, con la justificación de cada umbral, está en el
+ADR-001 del
+[docs/DECISIONS.md](../../docs/DECISIONS.md#adr-001--altura-de-los-edificios-buildingsheight_m)
+del workspace.
 
-| `height_source` | Meaning | Buildings (2026-10-06) |
+| `height_source` | Significado | Edificios (2026-10-06) |
 | --- | --- | --- |
-| `measured` | `measured_height` accepted as is | 38,712 |
-| `floors_estimate` | `measured_height` missing or wrong; `storeys × 3 + 1` | 248 |
-| `default` | neither a usable height nor storeys; 4 m | 3 |
+| `measured` | `measured_height` aceptada tal cual | 38.712 |
+| `floors_estimate` | `measured_height` ausente o errónea; `plantas × 3 + 1` | 248 |
+| `default` | ni altura utilizable ni plantas; 4 m | 3 |
 
-`height_suspicious` is `true` for 727 accepted heights that are atypical (one storey and more than
-15 m, or more than 6 m per storey). It flags them for review and does not change `height_m`.
+`height_suspicious` vale `true` en 727 alturas aceptadas pero atípicas (una planta y más de 15 m, o
+más de 6 m por planta). Solo las marca para revisión; no cambia `height_m`.
 
-### Trees: `idezar_base:arboles_2022`
+### Árboles: `idezar_base:arboles_2022`
 
-| Field | Use |
+| Campo | Uso |
 | --- | --- |
-| `ID` (string) | `trees.source_id`, paging order |
-| `ESPECIE` | `species` (null when empty: 14,640 trees, 8.5 %) |
-| `ALTTOTAL` (string, m) | `height_m` (null when empty: 15,545 trees, 9.0 %) |
-| `DIAMCOPA` (string, m) | `crown_diameter_m` (null when empty: 138,836 trees, 80.5 %) |
-| geometry (`Point`) | `geom` |
-| `EDADREL`, `FECHAPLANT`, `MATRICULA` | not imported |
+| `ID` (string) | `trees.source_id`, orden de paginación |
+| `ESPECIE` | `species` (null si está vacío: 14.640 árboles, 8,5 %) |
+| `ALTTOTAL` (string, m) | `height_m` (null si está vacío: 15.545 árboles, 9,0 %) |
+| `DIAMCOPA` (string, m) | `crown_diameter_m` (null si está vacío: 138.836 árboles, 80,5 %) |
+| geometría (`Point`) | `geom` |
+| `EDADREL`, `FECHAPLANT`, `MATRICULA` | no se importan |
 
-## OpenStreetMap via Overpass
+## OpenStreetMap vía Overpass
 
-- Endpoint: `https://overpass-api.de/api/interpreter` (configurable with `OVERPASS_URL`).
-- Area: `boundary=administrative`, `admin_level=8`, `ref:ine` starting with `50297` (Zaragoza).
-- Ways: `highway` in footway, pedestrian, path, steps, living_street, residential, service,
-  tertiary, secondary, primary, unclassified, cycleway, track; excluding `foot=no` and
-  `access=private`. The query is built in `src/integrations/osm/streetNetwork.js`.
-- Source count: number of ways in the Overpass response (Overpass returns the whole result in
-  one response; there is no separate `numberMatched`).
-- Licence: Open Database License (ODbL) 1.0. Attribution "© OpenStreetMap contributors".
+- Endpoint: `https://overpass-api.de/api/interpreter` (configurable con `OVERPASS_URL`).
+- Área: `boundary=administrative`, `admin_level=8`, `ref:ine` que empieza por `50297` (Zaragoza).
+- Vías: `highway` en footway, pedestrian, path, steps, living_street, residential, service,
+  tertiary, secondary, primary, unclassified, cycleway, track; excluyendo `foot=no` y
+  `access=private`. La consulta se construye en `src/integrations/osm/streetNetwork.js`.
+- Número de elementos de la fuente: número de vías de la respuesta de Overpass (Overpass devuelve
+  todo el resultado en una sola respuesta; no hay un `numberMatched` aparte).
+- Licencia: Open Database License (ODbL) 1.0. Atribución "© OpenStreetMap contributors".
 
-## Sources evaluated and not used
+## Fuentes evaluadas y no usadas
 
-| Source | Result |
+| Fuente | Resultado |
 | --- | --- |
-| `urbanismo:Alturas_Edificios` (IDEZAR) | 179,690 **points** with a text label (`etiqueta`, e.g. `ZV`). No building polygons; the label meaning is still unverified, so it is not used. |
-| Catastro INSPIRE WFS (`ovc.catastro.meh.es/INSPIRE/wfsBU.aspx`) | Works and has `numberOfFloorsAboveGround`, but is limited to 4 km² per request (a 500 m square returned 4.7 MB). IDEZAR already publishes Catastro-derived footprints with heights. |
-| OSM buildings / trees | 18,137 buildings, only 25 with `height`; 4,482 `natural=tree` nodes. Far less complete than IDEZAR. |
-| `idezar_base:arboles_urbanismo` | 233,995 cartographic symbols (`TXT_LABEL`, colour, angle); no tree attributes. |
-| `infraestructuraverde:reposicion` | Tree replacement works, not the tree inventory. |
+| `urbanismo:Alturas_Edificios` (IDEZAR) | 179.690 **puntos** con una etiqueta de texto (`etiqueta`, p. ej. `ZV`). No hay polígonos de edificios y el significado de la etiqueta sigue sin verificar, así que no se usa. |
+| WFS INSPIRE del Catastro (`ovc.catastro.meh.es/INSPIRE/wfsBU.aspx`) | Funciona y tiene `numberOfFloorsAboveGround`, pero está limitado a 4 km² por petición (un cuadrado de 500 m devolvió 4,7 MB). IDEZAR ya publica huellas derivadas del Catastro con alturas. |
+| Edificios / árboles de OSM | 18.137 edificios, solo 25 con `height`; 4.482 nodos `natural=tree`. Mucho menos completo que IDEZAR. |
+| `idezar_base:arboles_urbanismo` | 233.995 símbolos cartográficos (`TXT_LABEL`, color, ángulo); sin atributos de árbol. |
+| `infraestructuraverde:reposicion` | Trabajos de reposición de arbolado, no el inventario de árboles. |

@@ -34,7 +34,7 @@ function isSuspicious(heightM, floors, config) {
  * Replacement: storeys × floor height + ground-floor extra ('floors_estimate'); without storeys,
  * a configured default ('default').
  * Accepted but atypical heights are only flagged (heightSuspicious), never corrected, so they can
- * be reviewed later without changing the calculation. See docs/DECISIONS.md.
+ * be reviewed later without changing the calculation. See ADR-001 in docs/DECISIONS.md.
  */
 function estimateBuildingHeight({ measuredHeightM, storeys }, config) {
   const floors = Number.isInteger(storeys) && storeys > 0 ? storeys : null;

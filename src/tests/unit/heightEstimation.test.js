@@ -9,7 +9,7 @@ const estimate = (measuredHeightM, storeys) =>
   estimateBuildingHeight({ measuredHeightM, storeys }, config);
 
 describe('estimateBuildingHeight', () => {
-  it('uses the default configuration documented in DECISIONS.md', () => {
+  it('uses the default configuration documented in ADR-001', () => {
     expect(config).toEqual({
       floorHeightM: 3,
       groundFloorExtraM: 1,
