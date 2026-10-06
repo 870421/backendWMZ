@@ -1,6 +1,6 @@
 # WeatherMapZ Backend - Decisions (PBI-3)
 
-Decisions taken while importing urban data. Items under "Pending" are not resolved.
+Decisions taken while importing urban data. Items marked "Pending" are not resolved.
 
 ## Data sources
 
@@ -20,30 +20,97 @@ Decisions taken while importing urban data. Items under "Pending" are not resolv
   (lng −1.1862 to −0.6850, lat 41.4518 to 41.8103). A feature is rejected when any vertex falls
   outside it.
 
-## Building height (`buildings.height_m`)
+## Building height (`buildings.height_m`) — ADR-001
 
-Order of preference (`src/domain/buildings/heightEstimation.js`):
+- **Date:** 2026-10-06
+- **Status:** Accepted (replaces the first PBI-3.1 rule)
+- **Code:** `src/domain/buildings/heightEstimation.js`; thresholds in `importConfig.height`
+  (`src/config/importConfig.js`), each overridable with a `BUILDING_*` environment variable.
 
-1. `measured_height` → `height_source = 'measured'`, if it is plausible:
-   2 m ≤ height ≤ 150 m and, when `storeys_above_ground` is known,
-   2.5 m ≤ height / storeys ≤ 6 m.
-2. Otherwise, if storeys are known: `storeys × 3 m + 1 m` → `'floors_estimate'`.
-   The case is logged as a warning (it is not a rejection) and counted in `import_runs.details`.
-3. Otherwise `4 m` → `'default'`.
+### Context
 
-All thresholds and constants are configurable with environment variables (`BUILDING_*` in
-`src/config/importConfig.js`). The 4 m default equals one storey with the same formula; it is
-provisional and only affected 3 buildings on 2026-10-06.
+Buildings come from IDEZAR `citygml3d:building`, which provides `measured_height` (metres) and
+`storeys_above_ground` for each footprint. The layer states "Fuente: Catastro INSPIRE BU", but the
+service does not document how the height was measured. Values do not look derived from the storey
+count (they have decimals and vary from about 3 to 4.9 m per storey in ordinary blocks), so they
+are treated as measurements. Shadow calculations (PBI-5) depend directly on `height_m`.
 
-**Provenance of `measured_height`:** the layer states "Fuente: Catastro INSPIRE BU", but how the
-height was measured is not documented by the service. It is stored as `'measured'` because values
-are not a fixed multiple of the storeys (heights per storey range from 3 to 4.9 m with decimals).
+### Problem detected
+
+The first rule accepted a measured height only between 2.5 and 6 m per storey and otherwise
+replaced it with `storeys × 3 + 1`. On the real data it replaced 3,690 measured heights, 2,931 of
+them in single-storey buildings (median measured height 8.1 m, 90th percentile 18 m). Tall
+single-storey buildings are expected (warehouses, churches, sports halls); a 2,000-building
+sample of the replaced cases contained 73 industrial, 85 residential and 14 public-service
+buildings. Cutting them to 4 m made their shadows shorter than in reality.
+
+### Decision
+
+The measured height is the main source. It is replaced only when it is clearly wrong. All limits
+are inclusive: a value equal to a limit is accepted.
+
+| Constant (`importConfig.height`) | Value | Rule | Justification |
+| --- | --- | --- | --- |
+| `minHeightM` | 2 m | height < 2 m → wrong | Lower than any usable floor. |
+| `maxHeightM` | 150 m | height > 150 m → wrong | The tallest accepted measured height in the data is 100.5 m. |
+| `minHeightPerFloorM` | 2 m/storey | 2+ storeys and height / storeys < 2 → wrong | Storeys cannot be lower than about 2 m. |
+| `maxHeightPerFloorM` | 8 m/storey | 2+ storeys and height / storeys > 8 → wrong | Above this, storeys and height contradict each other. |
+| `maxSingleStoreyHeightM` | 40 m | 1 storey (or unknown) and height > 40 m → wrong | Allows warehouses, churches and sports halls; higher values are not single-storey buildings. |
+| `floorHeightM` | 3 m | replacement = storeys × 3 + 1 | Typical storey height. |
+| `groundFloorExtraM` | 1 m | (the "+ 1") | Taller ground floor and roof. |
+| `defaultHeightM` | 4 m | neither a valid height nor storeys | Same as one storey with the formula. |
+| `suspiciousSingleStoreyHeightM` | 15 m | 1 storey (or unknown) and height > 15 m → suspicious | Rare but possible; worth a manual look. |
+| `suspiciousHeightPerFloorM` | 6 m/storey | 2+ storeys and height / storeys > 6 → suspicious | Above usual storey heights, below the error limit. |
+
+Result per building (`height_source`):
+
+- `measured`: the measured height is accepted.
+- `floors_estimate`: the measured height is missing or wrong and storeys are known. The case is
+  logged as a warning (it is not a rejection) and counted in `import_runs.details`.
+- `default`: neither a usable height nor storeys (3 buildings).
+
+`storeys_above_ground = 0` is treated as unknown.
+
+### `height_suspicious`
+
+Boolean column (default `false`, added by migration `20261006000004`). It is `true` for accepted
+measured heights that are atypical: one storey (or unknown) and more than 15 m, or more than 6 m
+per storey. It only marks the value; `height_m` is never changed because of it. It is meant for
+manual review or for checking against future sources (e.g. LiDAR) without altering calculations.
+
+### Impact (real data, 2026-10-06, 38,963 buildings)
+
+| `height_source` | Previous rule | New rule |
+| --- | --- | --- |
+| `measured` | 35,025 | 38,712 |
+| `floors_estimate` | 3,935 | 248 |
+| `default` | 3 | 3 |
+| `height_suspicious = true` | (did not exist) | 727 (152 single-storey > 15 m, 575 > 6 m/storey) |
+| Single-storey buildings (12,523): median `height_m` | 4.0 m | 4.6 m |
+| Single-storey buildings: 90th percentile `height_m` | 5.3 m | 7.8 m |
+
+Reasons for the 248 `floors_estimate` cases: 184 above 8 m/storey, 46 below 2 m/storey, 7 above
+150 m, 6 single-storey above 40 m, 5 below 2 m.
+
+### Alternatives discarded
+
+- **First rule (2.5–6 m per storey for every building).** It treated tall single-storey buildings
+  as errors and replaced 3,690 measured values with estimates, shortening their shadows.
+- **Correcting suspicious heights automatically.** There is no second source to decide which
+  value is right, so suspicious values are only flagged.
+
+### Consequences
+
+- PBI-5.2 (shadows) uses `height_m` as stored. `height_suspicious` is not used in the shadow
+  calculation.
+- Changing a threshold only requires changing `importConfig.height` (or its environment variable)
+  and running `npm run import:buildings` again.
 
 ## Trees
 
 - Empty `ALTTOTAL`, `DIAMCOPA` or `ESPECIE` values are stored as `NULL`; trees are not rejected
   for missing attributes.
-- **Pending (PBI-5.2):** crown diameter is empty for most trees (~82 % in a sample). It is **not**
+- **Pending (PBI-5.2):** crown diameter is empty for 138,836 of 172,543 trees (80.5 %). It is **not**
   estimated in PBI-3; how to estimate it is decided in PBI-5.2.
 
 ## Pedestrian network
@@ -69,12 +136,3 @@ are not a fixed multiple of the storeys (heights per storey range from 3 to 4.9 
 - Each row stores the `import_run_id` that last wrote it. After a **successful** run, rows of the
   same source not written by that run (no longer in the source) are deleted. After a mismatch,
   existing rows are kept.
-
-## Pending
-
-- **Tall single-storey buildings.** With the plausibility rule above, 3,690 buildings whose
-  measured height exceeds 6 m per storey were replaced by `storeys × 3 + 1` (2,931 of them have
-  one storey; median measured height 8.1 m, 90th percentile 18.1 m). In a 2,000-building sample,
-  these cases include industrial (73), residential (85) and public-service (14) buildings. Many
-  may be correct measurements (warehouses, churches, sports halls), in which case the rule
-  underestimates their shadow. To be reviewed before PBI-5.

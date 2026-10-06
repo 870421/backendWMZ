@@ -17,7 +17,7 @@ Any product or document that shows these data must include:
 | --- | --- | --- | --- | --- | --- |
 | Buildings | IDEZAR WFS | `citygml3d:building` | 38,963 | EPSG:25830 | Ayuntamiento de Zaragoza reuse conditions |
 | Trees | IDEZAR WFS | `idezar_base:arboles_2022` | 172,543 | EPSG:25830 | Ayuntamiento de Zaragoza reuse conditions |
-| Pedestrian network | OpenStreetMap (Overpass API) | walkable `highway` ways in the municipality | see `import_runs` (≈41,000 ways) | EPSG:4326 | ODbL 1.0 |
+| Pedestrian network | OpenStreetMap (Overpass API) | walkable `highway` ways in the municipality | 44,676 ways (91,872 segments imported) | EPSG:4326 | ODbL 1.0 |
 
 All imports request or receive WGS84 coordinates and store them in EPSG:4326.
 
@@ -44,22 +44,40 @@ plantas, altura, uso, año). Fuente: Catastro INSPIRE BU. EPSG:25830."
 | Field | Use |
 | --- | --- |
 | `identifier` (e.g. `ES.SDGC.BU.3512704XM8231D01`) | `buildings.source_id`, paging order |
-| `measured_height` (decimal, m) | `height_m` when plausible (see DECISIONS.md) |
-| `storeys_above_ground` (short) | `floors`; fallback height estimate |
+| `measured_height` (decimal, m) | `height_m`, unless clearly wrong (see below) |
+| `storeys_above_ground` (short) | `floors`; replacement height when `measured_height` is wrong |
 | geometry (`Polygon` / `MultiPolygon`) | `geom`, stored as `MultiPolygon` |
 | `cadastral_reference`, `function`, `year_of_construction`, `num_viviendas`, `vigencia` | not imported yet |
 
 `vigencia` was `2026-10-01` in every feature sampled. How `measured_height` was obtained is not
-documented by the service (see DECISIONS.md).
+documented by the service.
+
+#### How `height_m` is obtained
+
+The measured height is kept unless it is clearly wrong. It is wrong if it is below 2 m or above
+150 m; with 2 or more storeys, if it is below 2 m or above 8 m per storey; with one storey (or no
+storey count), if it is above 40 m. A wrong or missing height is replaced by
+`storeys × 3 m + 1 m`. All limits are inclusive and configurable in `importConfig.height`. The full
+rule, with the reason for each threshold, is in
+[DECISIONS.md, ADR-001](DECISIONS.md#building-height-buildingsheight_m--adr-001).
+
+| `height_source` | Meaning | Buildings (2026-10-06) |
+| --- | --- | --- |
+| `measured` | `measured_height` accepted as is | 38,712 |
+| `floors_estimate` | `measured_height` missing or wrong; `storeys × 3 + 1` | 248 |
+| `default` | neither a usable height nor storeys; 4 m | 3 |
+
+`height_suspicious` is `true` for 727 accepted heights that are atypical (one storey and more than
+15 m, or more than 6 m per storey). It flags them for review and does not change `height_m`.
 
 ### Trees: `idezar_base:arboles_2022`
 
 | Field | Use |
 | --- | --- |
 | `ID` (string) | `trees.source_id`, paging order |
-| `ESPECIE` | `species` (null when empty) |
-| `ALTTOTAL` (string, m) | `height_m` (null when empty; ~3 % in a 5,000 sample) |
-| `DIAMCOPA` (string, m) | `crown_diameter_m` (null when empty; ~82 % in a 5,000 sample) |
+| `ESPECIE` | `species` (null when empty: 14,640 trees, 8.5 %) |
+| `ALTTOTAL` (string, m) | `height_m` (null when empty: 15,545 trees, 9.0 %) |
+| `DIAMCOPA` (string, m) | `crown_diameter_m` (null when empty: 138,836 trees, 80.5 %) |
 | geometry (`Point`) | `geom` |
 | `EDADREL`, `FECHAPLANT`, `MATRICULA` | not imported |
 
