@@ -1,0 +1,89 @@
+{
+  "type": "FeatureCollection",
+  "numberMatched": 5,
+  "numberReturned": 5,
+  "features": [
+    {
+      "type": "Feature",
+      "id": "arboles_2022.41282",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.890067, 41.655564]
+      },
+      "properties": {
+        "ID": "390414",
+        "ALTTOTAL": "2.5",
+        "DIAMCOPA": "",
+        "EDADREL": "",
+        "ESPECIE": "Morus alba 'Kagayamae'",
+        "FECHAPLANT": "1/1/2000 12:00:00 AM",
+        "MATRICULA": "6131"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "arboles_2022.41283",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.890122, 41.655575]
+      },
+      "properties": {
+        "ID": "390415",
+        "ALTTOTAL": "2.5",
+        "DIAMCOPA": "4.0",
+        "EDADREL": "",
+        "ESPECIE": "Morus alba 'Kagayamae'",
+        "FECHAPLANT": "1/1/2000 12:00:00 AM",
+        "MATRICULA": "6130"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "arboles_2022.41284",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.890176, 41.655585]
+      },
+      "properties": {
+        "ID": "390416",
+        "ALTTOTAL": "2.5",
+        "DIAMCOPA": "",
+        "EDADREL": "",
+        "ESPECIE": "Morus alba 'Kagayamae'",
+        "FECHAPLANT": "1/1/2000 12:00:00 AM",
+        "MATRICULA": "6129"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "arboles_2022.empty",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.890067, 41.655564]
+      },
+      "properties": {
+        "ID": "TEST-EMPTY",
+        "ALTTOTAL": "",
+        "DIAMCOPA": "",
+        "EDADREL": "",
+        "ESPECIE": "",
+        "FECHAPLANT": "1/1/2000 12:00:00 AM",
+        "MATRICULA": "6131"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "arboles_2022.nogeom",
+      "geometry": null,
+      "properties": {
+        "ID": "TEST-NOGEOM",
+        "ALTTOTAL": "2.5",
+        "DIAMCOPA": "",
+        "EDADREL": "",
+        "ESPECIE": "Morus alba 'Kagayamae'",
+        "FECHAPLANT": "1/1/2000 12:00:00 AM",
+        "MATRICULA": "6131"
+      }
+    }
+  ]
+}

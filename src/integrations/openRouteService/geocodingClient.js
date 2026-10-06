@@ -18,7 +18,7 @@ function normalizeFeature(feature) {
     label: label.trim(),
     lat,
     lng,
-    source: 'search',
+    source: 'search'
   };
 }
 
@@ -35,7 +35,7 @@ async function autocompletePlaces({ limit = 5, text }) {
   try {
     const response = await fetch(url, {
       headers: { Authorization: env.openRouteServiceApiKey },
-      signal: controller.signal,
+      signal: controller.signal
     });
     if (!response.ok) {
       throw providerError(

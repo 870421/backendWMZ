@@ -23,7 +23,7 @@ async function calculateFastestRoute({ origin, destination } = {}) {
 
   return getFastestWalkingRoute({
     origin: { lat: origin.lat, lng: origin.lng },
-    destination: { lat: destination.lat, lng: destination.lng },
+    destination: { lat: destination.lat, lng: destination.lng }
   });
 }
 

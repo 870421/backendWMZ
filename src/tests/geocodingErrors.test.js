@@ -23,7 +23,7 @@ describe('geocoding validation and provider failures', () => {
     'text=Pilar&limit=11',
     'text=Pilar&limit=1.5',
     'text=Pilar&limit=abc',
-    'text=Pilar&limit=2&limit=3',
+    'text=Pilar&limit=2&limit=3'
   ])('rejects invalid query %s without calling the provider', async (query) => {
     const response = await request(createApp()).get(`/api/geocoding/autocomplete?${query}`);
     expect(response.status).toBe(400);
@@ -34,7 +34,7 @@ describe('geocoding validation and provider failures', () => {
     [401, 502],
     [403, 502],
     [429, 429],
-    [500, 502],
+    [500, 502]
   ])('maps provider %s to %s', async (providerStatus, expected) => {
     global.fetch.mockResolvedValue({ ok: false, status: providerStatus });
     const response = await request(createApp()).get('/api/geocoding/autocomplete?text=Pilar');
@@ -51,7 +51,7 @@ describe('geocoding validation and provider failures', () => {
   it('normalizes, validates, deduplicates and limits provider points with Zaragoza focus', async () => {
     const place = {
       geometry: { type: 'Point', coordinates: [-0.88, 41.65] },
-      properties: { gid: '1', label: 'Pilar' },
+      properties: { gid: '1', label: 'Pilar' }
     };
     global.fetch.mockResolvedValue({
       ok: true,
@@ -67,15 +67,15 @@ describe('geocoding validation and provider failures', () => {
               type: 'LineString',
               coordinates: [
                 [0, 0],
-                [1, 1],
-              ],
-            },
+                [1, 1]
+              ]
+            }
           },
           place,
           place,
-          { ...place, properties: { gid: '2', name: 'Second' } },
-        ],
-      }),
+          { ...place, properties: { gid: '2', name: 'Second' } }
+        ]
+      })
     });
     const result = await autocompletePlaces({ text: 'Pilar', limit: 1 });
     expect(result).toEqual([{ id: '1', label: 'Pilar', lat: 41.65, lng: -0.88, source: 'search' }]);

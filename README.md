@@ -1,128 +1,195 @@
 # WeatherMapZ Backend
 
-Node.js + Express backend for WeatherMapZ.
+Backend de WeatherMapZ con Node.js + Express.
 
-## Requirements
+## Requisitos
 
-- Node.js 22 or newer
+- Node.js 22 o superior
 - npm
-- PostgreSQL with PostGIS for database-backed development
+- Docker (para la base de datos PostgreSQL/PostGIS que usan los imports de datos urbanos)
 
-## Setup
+## Instalación
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env      # después, rellena DB_PASSWORD y ORS_API_KEY
 ```
 
-## Development
+## Base de datos (PostGIS)
+
+`docker-compose.yml` arranca `postgis/postgis:17-3.5` con un volumen persistente `pgdata`. En el
+primer arranque también crea la base de datos de test (`DB_TEST_NAME`). Compose lee los valores
+`DB_*` de `backend/.env`.
+
+```bash
+docker compose up -d db       # o: npm run db:up
+npm run db:migrate            # base de datos de desarrollo
+npm run db:migrate:test       # base de datos de test (los tests de integración también lo hacen solos)
+```
+
+Las migraciones están en `src/repositories/migrations` (sequelize-cli) y `npm run db:migrate`
+aplica todas las pendientes, en orden:
+
+| Migración | Crea |
+| --- | --- |
+| `20261006000001-enable-postgis` | extensión `postgis` |
+| `20261006000002-create-import-tracking` | `import_runs`, `import_rejections` |
+| `20261006000003-create-urban-elements` | `buildings`, `trees`, `street_segments` |
+| `20261006000004-add-building-height-suspicious` | `buildings.height_suspicious` |
+
+Una base de datos que ya tenía las tres primeras migraciones solo necesita volver a ejecutar
+`npm run db:migrate`; la columna nueva se añade con `false` en las filas existentes y
+`npm run import:buildings` la rellena.
+
+Todas las geometrías se guardan en EPSG:4326 con índices GIST.
+
+### Tabla `buildings`
+
+| Columna | Tipo | Descripción |
+| --- | --- | --- |
+| `id` | serial | Clave primaria |
+| `source`, `source_id` | text | Origen (`idezar`) e `identifier` de IDEZAR; únicos en conjunto |
+| `height_m` | double, not null | Altura usada para las sombras (ver ADR-001 en el `docs/DECISIONS.md` del workspace) |
+| `height_source` | text | `measured`, `floors_estimate` o `default` |
+| `height_suspicious` | boolean, por defecto `false` | Altura medida aceptada pero atípica, marcada para revisión |
+| `floors` | smallint | `storeys_above_ground` (null si se desconoce o es 0) |
+| `geom` | `geometry(MultiPolygon, 4326)` | Huella del edificio (índice GIST) |
+| `import_run_id` | integer | Última ejecución de import que escribió la fila |
+
+## Imports de datos urbanos (PBI-3.1)
+
+Se ejecutan después de las migraciones, en este orden:
+
+```bash
+npm run import:all            # edificios, árboles y red peatonal (unos 20 minutos)
+# o uno a uno:
+npm run import:buildings      # IDEZAR citygml3d:building
+npm run import:trees          # IDEZAR idezar_base:arboles_2022
+npm run import:streets        # vías peatonales de OpenStreetMap vía Overpass, troceadas en tramos
+```
+
+Cada ejecución se guarda en `import_runs` con `source_count` (lo que anuncia la fuente),
+`imported_count` y `rejected_count`. Cada registro rechazado se guarda con su motivo y sus datos
+originales en `import_rejections`. Si importados + rechazados no coincide con el número de la
+fuente, la ejecución queda en `mismatch` y el comando sale con código 1. Repetir un import
+actualiza las filas existentes; nunca las duplica. Las fuentes, campos y licencias están en
+[docs/DATA_SOURCES.md](docs/DATA_SOURCES.md), y las decisiones tomadas (altura de los edificios,
+filtro de la red, troceo) en el [docs/DECISIONS.md](../docs/DECISIONS.md) del workspace (ADR-001 a
+ADR-008, fuera de este repositorio).
+
+### Atribución de los datos
+
+Origen de los datos: Ayuntamiento de Zaragoza (IDEZAR), edificios: vigencia 2026-10-01;
+arbolado: inventario 2022 (capa `arboles_2022`).
+
+© OpenStreetMap contributors, ODbL.
+
+## Desarrollo
 
 ```bash
 npm run dev
 ```
 
-The API runs on <http://localhost:3000/api>.
+La API se sirve en <http://localhost:3000/api>.
 
-## Test
+## Tests
 
 ```bash
-npm test
+npm test                      # tests unitarios y HTTP, sin base de datos
+npm run test:integration      # tests con PostGIS; necesitan `docker compose up -d db`
+npm run test:all              # ambos, con cobertura combinada
 ```
 
-## Checks
+Los tests nunca llaman a APIs externas; las respuestas de IDEZAR y Overpass salen de fixtures en
+`src/tests/fixtures`.
+
+## Comprobaciones
 
 ```bash
 npm run check
+npm run lint                  # ESLint (airbnb-base + compatibilidad con Prettier)
+npm run format:check          # Prettier
 ```
 
-## Lint
-
-```bash
-npm run lint
-```
-
-ESLint checks the project using an Airbnb-compatible flat configuration for modern
-ESLint versions.
-
-## Format
-
-Format the project automatically with Prettier:
-
-```bash
-npm run format
-```
-
-Check formatting without changing files:
-
-```bash
-npm run format:check
-```
-
-## Continuous integration
-
-Run the same checks used by GitHub Actions locally with:
+Para ejecutar localmente las mismas comprobaciones que GitHub Actions:
 
 ```bash
 npm run ci
 ```
 
-This command runs ESLint, checks Prettier formatting, runs the Node.js syntax check
-and executes the complete Jest suite.
-The GitHub Actions workflow runs automatically for every pull request targeting
-`main`. OpenRouteService is mocked in tests, so CI does not require `ORS_API_KEY`.
+Este comando ejecuta ESLint, comprueba el formato con Prettier, valida la sintaxis y lanza los
+tests unitarios y HTTP. El workflow se ejecuta en cada pull request hacia `main`. Las llamadas a
+OpenRouteService están simuladas en los tests, por lo que CI no necesita `ORS_API_KEY`.
 
-## Production Start
+## Arranque en producción
 
 ```bash
 npm start
 ```
 
-## Environment
+## Variables de entorno
 
-- `NODE_ENV`: runtime environment.
-- `PORT`: HTTP port. Default local value: `3000`.
-- `CORS_ORIGIN`: allowed frontend origin. Default local value: `http://localhost:5173`.
-- `DATABASE_URL`: PostgreSQL/PostGIS connection string.
-- `ORS_API_KEY`: OpenRouteService / HeiGIT API key used by geocoding autocomplete and pedestrian routing. Keep it only in the ignored `backend/.env` or server environment. `OPENROUTESERVICE_API_KEY` remains a fallback for older setups.
-- `OPENROUTESERVICE_GEOCODING_BASE_URL`: geocoding API base URL. Default local value: `https://api.heigit.org/pelias/v1`.
-- `OPENROUTESERVICE_DIRECTIONS_BASE_URL`: directions API base URL. Default local value: `https://api.openrouteservice.org/v2/directions`.
+- `NODE_ENV`: entorno de ejecución.
+- `PORT`: puerto HTTP. Valor local por defecto: `3000`.
+- `CORS_ORIGIN`: origen permitido del frontend. Valor local por defecto: `http://localhost:5173`.
+- `LOG_LEVEL`: `debug`, `info` (por defecto), `warn`, `error` o `silent` (por defecto en los tests).
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: conexión a PostgreSQL/PostGIS; también
+  las usa `docker-compose.yml`. `DB_TEST_NAME`: nombre de la base de datos de test.
+- `DATABASE_URL`, `TEST_DATABASE_URL`: cadenas de conexión opcionales que sustituyen a los valores `DB_*`.
+- `IDEZAR_WFS_URL`, `OVERPASS_URL`: endpoints de las fuentes del import (valores por defecto en `src/config/importConfig.js`).
+- `IMPORT_WFS_PAGE_SIZE` (2000), `IMPORT_BATCH_SIZE` (500): tamaño de página del import y de cada transacción.
+- `BUILDING_FLOOR_HEIGHT_M` (3), `BUILDING_GROUND_FLOOR_EXTRA_M` (1), `BUILDING_DEFAULT_HEIGHT_M` (4),
+  `BUILDING_MIN_HEIGHT_M` (2), `BUILDING_MAX_HEIGHT_M` (150), `BUILDING_MIN_HEIGHT_PER_FLOOR_M` (2),
+  `BUILDING_MAX_HEIGHT_PER_FLOOR_M` (8), `BUILDING_MAX_SINGLE_STOREY_HEIGHT_M` (40),
+  `BUILDING_SUSPICIOUS_SINGLE_STOREY_HEIGHT_M` (15), `BUILDING_SUSPICIOUS_HEIGHT_PER_FLOOR_M` (6):
+  estimación de la altura de los edificios (ver ADR-001 en el `docs/DECISIONS.md` del workspace).
+- `ORS_API_KEY`: clave de API de OpenRouteService / HeiGIT que usan el autocompletado y el cálculo
+  de rutas. Guárdala solo en el `backend/.env` ignorado por Git o en el entorno del servidor.
+  `OPENROUTESERVICE_API_KEY` sigue funcionando como alternativa para configuraciones antiguas.
+- `OPENROUTESERVICE_GEOCODING_BASE_URL`: URL base de la API de geocodificación. Valor local por defecto: `https://api.heigit.org/pelias/v1`.
+- `OPENROUTESERVICE_DIRECTIONS_BASE_URL`: URL base de la API de rutas. Valor local por defecto:
+  `https://api.openrouteservice.org/v2/directions`.
 
-## PBI-1 autocomplete contract
+## Contrato del autocompletado (PBI-1)
 
 `GET /api/geocoding/autocomplete?text=Plaza%20del%20Pilar&limit=5`
 
-Returns `{ results: [{ id, label, lat, lng, source: "search" }] }`.
-Text shorter than 3 characters returns an empty list; maximum length is 200.
-Limit defaults to 5 and must be an integer from 1 to 10. Invalid queries return 400.
-Provider features are validated, normalized and deduplicated by the adapter.
-Search uses Zaragoza focus and a Spain filter. It does not enforce a city boundary.
+Devuelve `{ results: [{ id, label, lat, lng, source: "search" }] }`.
+Un texto de menos de 3 caracteres devuelve una lista vacía; la longitud máxima es 200.
+`limit` vale 5 por defecto y debe ser un entero de 1 a 10. Las consultas no válidas devuelven 400.
+El adaptador valida, normaliza y elimina duplicados de los resultados del proveedor.
+La búsqueda se centra en Zaragoza y filtra por España. No se limita al término municipal.
 
-Errors use `{ error: { message } }`: 503 for missing configuration, 429 for provider
-quota limits, 504 for the 8-second provider timeout, and 502 for provider/network or
-invalid-response failures. Provider bodies and credentials are never forwarded.
-Automated tests mock external requests.
+Los errores usan `{ error: { message } }`: 503 si falta configuración, 429 si se agota la cuota
+del proveedor, 504 si el proveedor supera el timeout de 8 segundos y 502 si falla el proveedor o
+la red, o la respuesta no es válida. Nunca se reenvían cuerpos de respuesta del proveedor ni
+credenciales. Los tests automáticos simulan las peticiones externas.
 
-## PBI-2 fastest route contract
+Desde la raíz del workspace, `docker compose up` carga `backend/.env` mediante `env_file`.
+Crea ese fichero (ignorado por Git) a partir de `.env.example` antes de arrancar Compose; no
+sobrescribas una clave existente. El frontend llega a la API a través del proxy de desarrollo de
+Vite.
+
+## Contrato de la ruta rápida (PBI-2)
 
 `POST /api/routes/fastest`
 
-Calculates the fastest pedestrian route between two coordinates. This baseline route
-does not take shade, sun, wind or other comfort factors into account.
+Calcula la ruta peatonal más rápida entre dos coordenadas, sin considerar sombra, sol, viento ni
+otros factores de confort.
 
-### Request
+### Petición
 
-Send a JSON body with the following fields:
+El cuerpo JSON debe incluir `origin` y `destination`. Cada punto debe contener una latitud entre
+`-90` y `90` y una longitud entre `-180` y `180`:
 
-| Field             | Type   | Required | Validation                      |
-| ----------------- | ------ | -------- | ------------------------------- |
-| `origin`          | object | Yes      | Must contain `lat` and `lng`.   |
-| `origin.lat`      | number | Yes      | Latitude from `-90` to `90`.    |
-| `origin.lng`      | number | Yes      | Longitude from `-180` to `180`. |
-| `destination`     | object | Yes      | Must contain `lat` and `lng`.   |
-| `destination.lat` | number | Yes      | Latitude from `-90` to `90`.    |
-| `destination.lng` | number | Yes      | Longitude from `-180` to `180`. |
+```json
+{
+  "origin": { "lat": 41.6488, "lng": -0.8891 },
+  "destination": { "lat": 41.656, "lng": -0.878 }
+}
+```
 
-Example request:
+Ejemplo:
 
 ```bash
 curl --request POST http://localhost:3000/api/routes/fastest \
@@ -133,18 +200,10 @@ curl --request POST http://localhost:3000/api/routes/fastest \
   }'
 ```
 
-Equivalent request body:
+### Respuesta correcta
 
-```json
-{
-  "origin": { "lat": 41.6488, "lng": -0.8891 },
-  "destination": { "lat": 41.656, "lng": -0.878 }
-}
-```
-
-### Successful response
-
-The endpoint returns `200 OK` with the normalized route:
+Devuelve `200 OK` con una geometría GeoJSON `LineString`, la distancia total en metros y la
+duración estimada en segundos:
 
 ```json
 {
@@ -163,37 +222,46 @@ The endpoint returns `200 OK` with the normalized route:
 }
 ```
 
-| Field            | Description                                                       |
-| ---------------- | ----------------------------------------------------------------- |
-| `route.geometry` | GeoJSON `LineString`. Each position uses `[longitude, latitude]`. |
-| `route.distance` | Total route distance in metres.                                   |
-| `route.duration` | Estimated walking duration in seconds.                            |
+### Errores
 
-### Error responses
+Todos los errores usan `{ "error": { "message": "..." } }`:
 
-All errors use the following shape:
+| Código | Significado |
+| --- | --- |
+| `400` | Faltan coordenadas, no son numéricas o están fuera de rango. |
+| `429` | Se ha agotado la cuota de OpenRouteService. |
+| `502` | El proveedor no está disponible o ha devuelto una respuesta inválida. |
+| `503` | El servidor no tiene configurada la clave de OpenRouteService. |
+| `504` | OpenRouteService no ha respondido antes del timeout de 8 segundos. |
+| `500` | Error interno inesperado. |
 
-```json
-{
-  "error": {
-    "message": "Route calculation timed out. Please try again."
-  }
-}
-```
+Las respuestas nunca incluyen credenciales, cuerpos del proveedor ni detalles internos. Los
+tests automáticos simulan OpenRouteService y no consumen cuota.
 
-| Status                      | Meaning                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `400 Bad Request`           | Origin or destination is missing, non-numeric or outside the valid latitude/longitude ranges. |
-| `429 Too Many Requests`     | The OpenRouteService quota has been exceeded.                                                 |
-| `502 Bad Gateway`           | OpenRouteService is unavailable or returned an invalid response.                              |
-| `503 Service Unavailable`   | Route calculation is not configured because the server has no ORS API key.                    |
-| `504 Gateway Timeout`       | OpenRouteService did not answer within the 8-second timeout.                                  |
-| `500 Internal Server Error` | An unexpected internal error occurred.                                                        |
+## Checklist de verificación manual
 
-Provider response bodies, internal error details and API credentials are never included
-in responses. Automated tests use a simulated OpenRouteService response and do not spend
-provider quota.
+### PBI-3.1 - Importación de edificios y arbolado
 
-From the workspace root, `docker compose up` loads `backend/.env` using `env_file`.
-Create that ignored file from `.env.example` before starting Compose; do not overwrite
-an existing key. The frontend reaches the API through Vite's development proxy.
+- [ ] `docker compose up -d db` y `npm run db:migrate` terminan sin errores y aplican las cuatro
+      migraciones (`SELECT name FROM sequelize_meta;`). En una base de datos que ya tenía las tres
+      primeras, `npm run db:migrate` solo añade `20261006000004-add-building-height-suspicious`.
+- [ ] `npm run import:all` termina con `SUCCESS` en `buildings`, `trees` y `streets`, y con código
+      de salida 0.
+- [ ] Los conteos coinciden con la fuente:
+      `SELECT dataset, source_count, imported_count, rejected_count, status FROM import_runs ORDER BY id DESC LIMIT 3;`
+      Compara `source_count` con el `numberMatched` de
+      `https://idezar-sig.zaragoza.es/servicios/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=citygml3d:building&resultType=hits`
+      (y de `idezar_base:arboles_2022`).
+- [ ] `SELECT count(*) FROM buildings;`, `trees` y `street_segments` coinciden con `imported_count`.
+- [ ] Los rechazos son visibles: `SELECT dataset, reason, count(*) FROM import_rejections GROUP BY 1, 2;`
+- [ ] Volver a ejecutar `npm run import:trees` no cambia `SELECT count(*) FROM trees;`.
+- [ ] `SELECT height_source, count(*) FROM buildings GROUP BY 1;` → measured ≈ 38.712,
+      floors_estimate ≈ 248, default ≈ 3 (valores del 2026-10-06; cambian un poco si se actualiza
+      la fuente).
+- [ ] `SELECT count(*) FROM buildings WHERE height_suspicious;` → ≈ 727.
+- [ ] Un edificio de una planta con 12 m medidos conserva sus 12 m:
+      `SELECT height_m, height_source, height_suspicious FROM buildings WHERE source_id = 'ES.SDGC.BU.1250607XM8015A07';`
+      → `12 | measured | f`.
+- [ ] Las alturas de una planta no se recortan:
+      `SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY height_m), percentile_cont(0.9) WITHIN GROUP (ORDER BY height_m) FROM buildings WHERE floors = 1;`
+      → 4.6 y 7.8.

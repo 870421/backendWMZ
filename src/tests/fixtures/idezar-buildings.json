@@ -1,0 +1,177 @@
+{
+  "type": "FeatureCollection",
+  "numberMatched": 6,
+  "numberReturned": 6,
+  "features": [
+    {
+      "type": "Feature",
+      "id": "building.fid-24380387_1a111c80fd9_1512",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-1.0351027, 41.7213575],
+            [-1.0348529, 41.7215164],
+            [-1.0344724, 41.721207],
+            [-1.0347294, 41.7210429],
+            [-1.0351027, 41.7213575]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": "ES.SDGC.BU.3509801XM6231A01",
+        "cadastral_reference": "3509801XM6231A",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 1,
+        "measured_height": 14.6,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building.fid-24380387_1a111c80fd9_1517",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.793217, 41.7204524],
+            [-0.7932361, 41.7205002],
+            [-0.7931712, 41.7205142],
+            [-0.7931737, 41.7205187],
+            [-0.7930782, 41.7205391],
+            [-0.7930574, 41.7204853],
+            [-0.793217, 41.7204524]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": "ES.SDGC.BU.3512704XM8231D01",
+        "cadastral_reference": "3512704XM8231D",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 1,
+        "measured_height": 4.9,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building.missing-id",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-1.0351027, 41.7213575],
+            [-1.0348529, 41.7215164],
+            [-1.0344724, 41.721207],
+            [-1.0347294, 41.7210429],
+            [-1.0351027, 41.7213575]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": null,
+        "cadastral_reference": "3509801XM6231A",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 1,
+        "measured_height": 14.6,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building.outside",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [1.9648973, 41.7213575],
+            [1.9651471, 41.7215164],
+            [1.9655276, 41.721207],
+            [1.9652706, 41.7210429],
+            [1.9648973, 41.7213575]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": "TEST.OUTSIDE",
+        "cadastral_reference": "3509801XM6231A",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 1,
+        "measured_height": 14.6,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building.implausible",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.793217, 41.7204524],
+            [-0.7932361, 41.7205002],
+            [-0.7931712, 41.7205142],
+            [-0.7931737, 41.7205187],
+            [-0.7930782, 41.7205391],
+            [-0.7930574, 41.7204853],
+            [-0.793217, 41.7204524]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": "TEST.IMPLAUSIBLE",
+        "cadastral_reference": "3512704XM8231D",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 4,
+        "measured_height": 300,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building.multi",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-0.793217, 41.7204524],
+              [-0.7932361, 41.7205002],
+              [-0.7931712, 41.7205142],
+              [-0.7931737, 41.7205187],
+              [-0.7930782, 41.7205391],
+              [-0.7930574, 41.7204853],
+              [-0.793217, 41.7204524]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "identifier": "TEST.MULTI",
+        "cadastral_reference": "3512704XM8231D",
+        "num_viviendas": 0,
+        "num_unidades": 1,
+        "vigencia": "2026-10-01",
+        "storeys_above_ground": 3,
+        "measured_height": null,
+        "function": "2_agriculture",
+        "year_of_construction": null
+      }
+    }
+  ]
+}

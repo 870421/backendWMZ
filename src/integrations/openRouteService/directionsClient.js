@@ -79,14 +79,14 @@ async function getFastestWalkingRoute({ origin, destination }) {
       headers: {
         Accept: 'application/geo+json',
         Authorization: env.openRouteServiceApiKey,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         coordinates,
         preference: 'fastest',
-        instructions: false,
+        instructions: false
       }),
-      signal: controller.signal,
+      signal: controller.signal
     });
 
     if (!response.ok) {

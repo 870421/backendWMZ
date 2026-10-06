@@ -6,12 +6,23 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "lint": "eslint src jest.config.js --max-warnings=0",
-    "format": "prettier --write \"src/**/*.js\" \"*.{js,cjs,mjs,json,md}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"*.{js,cjs,mjs,json,md}\" \".github/**/*.yml\"",
     "test": "jest --coverage",
     "check": "node --check src/server.js && node --check src/app.js",
-    "ci": "npm run lint && npm run format:check && npm run check && npm test -- --runInBand"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ci": "npm run lint && npm run format:check && npm run check && npm test -- --runInBand",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:test": "sequelize-cli db:migrate --env test",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "import:buildings": "node src/integrations/idezar/importBuildings.js",
+    "import:trees": "node src/integrations/idezar/importTrees.js",
+    "import:streets": "node src/integrations/osm/importStreets.js",
+    "import:all": "node src/integrations/importAll.js",
+    "test:integration": "jest --config jest.integration.config.js --coverage",
+    "test:all": "jest --config jest.all.config.js --coverage"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -22,14 +33,22 @@
     "sequelize": "^6.37.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "5.10.0",
-    "eslint": "^10.12.0",
-    "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-import-x": "4.17.1",
-    "eslint-stylistic-airbnb": "3.2.0",
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "globals": "^17.13.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.0",
-    "prettier": "3.9.9",
+    "prettier": "^3.9.9",
+    "sequelize-cli": "^6.6.5",
     "supertest": "^7.0.0"
+  },
+  "overrides": {
+    "eslint-config-airbnb-base": {
+      "eslint": "$eslint"
+    }
   }
 }

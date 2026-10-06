@@ -1,7 +1,7 @@
 const request = require('supertest');
 
 jest.mock('../integrations/openRouteService/directionsClient', () => ({
-  getFastestWalkingRoute: jest.fn(),
+  getFastestWalkingRoute: jest.fn()
 }));
 
 const { createApp } = require('../app');
@@ -16,11 +16,11 @@ describe('POST /api/routes/fastest', () => {
       coordinates: [
         [-0.8891, 41.6488],
         [-0.884, 41.652],
-        [-0.878, 41.656],
-      ],
+        [-0.878, 41.656]
+      ]
     },
     distance: 1250.4,
-    duration: 930.2,
+    duration: 930.2
   };
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('POST /api/routes/fastest', () => {
     { origin: [], destination },
     { origin: { lat: '41.6488', lng: -0.8891 }, destination },
     { origin: { lat: 91, lng: -0.8891 }, destination },
-    { origin, destination: { lat: 41.656, lng: -181 } },
+    { origin, destination: { lat: 41.656, lng: -181 } }
   ])('returns 400 for invalid coordinates %#', async (body) => {
     let pendingRequest = request(createApp()).post('/api/routes/fastest');
     if (body !== undefined) pendingRequest = pendingRequest.send(body);
@@ -58,8 +58,8 @@ describe('POST /api/routes/fastest', () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
       error: {
-        message: 'Origin and destination must contain valid latitude and longitude coordinates.',
-      },
+        message: 'Origin and destination must contain valid latitude and longitude coordinates.'
+      }
     });
     expect(getFastestWalkingRoute).not.toHaveBeenCalled();
   });
@@ -67,7 +67,7 @@ describe('POST /api/routes/fastest', () => {
   it.each([
     [429, 'Route provider quota has been exceeded. Please try again shortly.'],
     [502, 'Route provider is unavailable.'],
-    [504, 'Route calculation timed out. Please try again.'],
+    [504, 'Route calculation timed out. Please try again.']
   ])('preserves controlled provider error %s', async (status, message) => {
     getFastestWalkingRoute.mockRejectedValue(Object.assign(new Error(message), { status }));
 
@@ -77,7 +77,7 @@ describe('POST /api/routes/fastest', () => {
 
     expect(response.status).toBe(status);
     expect(response.body).toEqual({
-      error: { message },
+      error: { message }
     });
   });
 
@@ -92,7 +92,7 @@ describe('POST /api/routes/fastest', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
-      error: { message: 'Internal server error' },
+      error: { message: 'Internal server error' }
     });
     expect(response.text).not.toContain('test-key');
     expect(response.text).not.toContain('sensitive provider response body');

@@ -34,13 +34,13 @@ describe('OpenRouteService directions adapter', () => {
               coordinates: [
                 [-0.8891, 41.6488],
                 [-0.884, 41.652],
-                [-0.878, 41.656],
-              ],
+                [-0.878, 41.656]
+              ]
             },
-            properties: { summary: { distance: 1250.4, duration: 930.2 } },
-          },
-        ],
-      }),
+            properties: { summary: { distance: 1250.4, duration: 930.2 } }
+          }
+        ]
+      })
     });
 
     await expect(getFastestWalkingRoute({ origin, destination })).resolves.toEqual({
@@ -49,11 +49,11 @@ describe('OpenRouteService directions adapter', () => {
         coordinates: [
           [-0.8891, 41.6488],
           [-0.884, 41.652],
-          [-0.878, 41.656],
-        ],
+          [-0.878, 41.656]
+        ]
       },
       distance: 1250.4,
-      duration: 930.2,
+      duration: 930.2
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -66,10 +66,10 @@ describe('OpenRouteService directions adapter', () => {
       JSON.stringify({
         coordinates: [
           [-0.8891, 41.6488],
-          [-0.878, 41.656],
+          [-0.878, 41.656]
         ],
         preference: 'fastest',
-        instructions: false,
+        instructions: false
       })
     );
     expect(options.signal).toBeInstanceOf(AbortSignal);
@@ -79,7 +79,7 @@ describe('OpenRouteService directions adapter', () => {
     await expect(
       getFastestWalkingRoute({
         origin: { lat: 100, lng: -0.8891 },
-        destination,
+        destination
       })
     ).rejects.toMatchObject({ status: 400, message: 'Route coordinates are invalid.' });
     expect(global.fetch).not.toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe('OpenRouteService directions adapter', () => {
     env.openRouteServiceApiKey = '';
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 503,
-      message: 'Route calculation is not configured.',
+      message: 'Route calculation is not configured.'
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -98,14 +98,14 @@ describe('OpenRouteService directions adapter', () => {
     [401, 502, 'Route provider is unavailable.'],
     [403, 502, 'Route provider is unavailable.'],
     [429, 429, 'Route provider quota has been exceeded. Please try again shortly.'],
-    [500, 502, 'Route provider is unavailable.'],
+    [500, 502, 'Route provider is unavailable.']
   ])('maps provider status %s to controlled status %s', async (providerStatus, status, message) => {
     const json = jest.fn(async () => ({ sensitive: 'provider body' }));
     global.fetch.mockResolvedValue({ ok: false, status: providerStatus, json });
 
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status,
-      message,
+      message
     });
     expect(json).not.toHaveBeenCalled();
   });
@@ -120,9 +120,9 @@ describe('OpenRouteService directions adapter', () => {
       features: [
         {
           geometry: { type: 'Point', coordinates: [-0.8891, 41.6488] },
-          properties: { summary: { distance: 1, duration: 1 } },
-        },
-      ],
+          properties: { summary: { distance: 1, duration: 1 } }
+        }
+      ]
     },
     {
       type: 'FeatureCollection',
@@ -132,12 +132,12 @@ describe('OpenRouteService directions adapter', () => {
             type: 'LineString',
             coordinates: [
               [-0.8891, 41.6488],
-              ['bad', 41.656],
-            ],
+              ['bad', 41.656]
+            ]
           },
-          properties: { summary: { distance: 1, duration: 1 } },
-        },
-      ],
+          properties: { summary: { distance: 1, duration: 1 } }
+        }
+      ]
     },
     {
       type: 'FeatureCollection',
@@ -147,12 +147,12 @@ describe('OpenRouteService directions adapter', () => {
             type: 'LineString',
             coordinates: [
               [-0.8891, 41.6488],
-              [-0.878, 41.656],
-            ],
+              [-0.878, 41.656]
+            ]
           },
-          properties: { summary: { distance: -1, duration: 1 } },
-        },
-      ],
+          properties: { summary: { distance: -1, duration: 1 } }
+        }
+      ]
     },
     {
       type: 'FeatureCollection',
@@ -162,18 +162,18 @@ describe('OpenRouteService directions adapter', () => {
             type: 'LineString',
             coordinates: [
               [-0.8891, 41.6488],
-              [-0.878, 41.656],
-            ],
+              [-0.878, 41.656]
+            ]
           },
-          properties: { summary: { distance: 1 } },
-        },
-      ],
-    },
+          properties: { summary: { distance: 1 } }
+        }
+      ]
+    }
   ])('rejects malformed provider data without exposing it', async (body) => {
     global.fetch.mockResolvedValue({ ok: true, json: async () => body });
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Invalid route provider response.',
+      message: 'Invalid route provider response.'
     });
   });
 
@@ -184,16 +184,16 @@ describe('OpenRouteService directions adapter', () => {
         ok: true,
         json: async () => {
           throw new Error('sensitive invalid JSON');
-        },
+        }
       });
 
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Route provider is unavailable.',
+      message: 'Route provider is unavailable.'
     });
     await expect(getFastestWalkingRoute({ origin, destination })).rejects.toMatchObject({
       status: 502,
-      message: 'Route provider is unavailable.',
+      message: 'Route provider is unavailable.'
     });
   });
 
@@ -209,7 +209,7 @@ describe('OpenRouteService directions adapter', () => {
     const result = getFastestWalkingRoute({ origin, destination });
     const assertion = expect(result).rejects.toMatchObject({
       status: 504,
-      message: 'Route calculation timed out. Please try again.',
+      message: 'Route calculation timed out. Please try again.'
     });
     await jest.advanceTimersByTimeAsync(8000);
     await assertion;
