@@ -121,3 +121,22 @@ Never hardcode:
 - environment-specific configuration
 
 Use environment variables and maintain `.env.example`.
+
+## Documentación obligatoria por PBI
+
+- When a PBI is finished, and before opening its pull request, add its entry at the top of the
+  "Registro de PBIs" in `docs/DECISIONS.md`, with: title, date, branch and status (En revisión /
+  Fusionada #N); what was done, in plain language; the satisfaction conditions checked, with where
+  each one is verified (test, command or query); real data and results; technical changes
+  (tables, migrations, npm commands, environment variables, endpoints); links to the ADRs taken;
+  pending items and risks for later PBIs; and how to verify it by hand.
+- Record every non-obvious technical decision as a new ADR in the same file. If a decision
+  changes, add a new ADR and mark the previous one as "Sustituido por ADR-00X". Never delete the
+  history.
+- Update EVERY Markdown file affected by the change: `DATA_SOURCES.md` if sources or data change,
+  `README.md` if start-up, environment variables, commands, schema or the manual checklist change,
+  and the API documentation if endpoints change.
+- Before closing the PBI, grep all Markdown files for the terms and figures that changed, so no
+  outdated information is left anywhere.
+- The pull request description lives in `PR-<pbi>.md` (local only, ignored by Git) and is a short
+  summary that links to the PBI entry in `docs/DECISIONS.md`.

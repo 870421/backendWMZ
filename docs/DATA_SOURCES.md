@@ -59,7 +59,7 @@ The measured height is kept unless it is clearly wrong. It is wrong if it is bel
 storey count), if it is above 40 m. A wrong or missing height is replaced by
 `storeys × 3 m + 1 m`. All limits are inclusive and configurable in `importConfig.height`. The full
 rule, with the reason for each threshold, is in
-[DECISIONS.md, ADR-001](DECISIONS.md#building-height-buildingsheight_m--adr-001).
+[DECISIONS.md, ADR-001](DECISIONS.md#adr-001--building-height-buildingsheight_m).
 
 | `height_source` | Meaning | Buildings (2026-10-06) |
 | --- | --- | --- |
