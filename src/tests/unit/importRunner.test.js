@@ -151,4 +151,20 @@ describe('runImport', () => {
 
     expect(summary.details.warnings).toBe(1);
   });
+  it('marks the street associations as stale when an import starts', async () => {
+    const store = { ...fakeStore(), markAssociationsStale: jest.fn().mockResolvedValue(2) };
+
+    await runImport({
+      dataset: 'trees',
+      sourceUrl: 'u',
+      pages: pagesOf({ sourceCount: 1, items: [{ id: 'a' }] }),
+      mapItem,
+      store
+    });
+
+    expect(store.markAssociationsStale).toHaveBeenCalledWith(7);
+    expect(store.markAssociationsStale.mock.invocationCallOrder[0]).toBeLessThan(
+      store.upsertBatch.mock.invocationCallOrder[0]
+    );
+  });
 });
