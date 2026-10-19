@@ -36,10 +36,13 @@ aplica todas las pendientes, en orden:
 | `20261006000002-create-import-tracking` | `import_runs`, `import_rejections` |
 | `20261006000003-create-urban-elements` | `buildings`, `trees`, `street_segments` |
 | `20261006000004-add-building-height-suspicious` | `buildings.height_suspicious` |
+| `20261019000001-create-associations` | `segment_trees`, `segment_buildings`, `association_runs`, `unassociated_elements` e índice `street_segments_geog_gist` |
 
 Una base de datos que ya tenía las tres primeras migraciones solo necesita volver a ejecutar
 `npm run db:migrate`; la columna nueva se añade con `false` en las filas existentes y
-`npm run import:buildings` la rellena.
+`npm run import:buildings` la rellena. Una base de datos con los datos de la PBI-3.1 ya cargados
+solo necesita `npm run db:migrate` (aplica `20261019000001-create-associations`) y
+`npm run associate`; no hace falta reimportar.
 
 Todas las geometrías se guardan en EPSG:4326 con índices GIST.
 
@@ -74,8 +77,12 @@ originales en `import_rejections`. Si importados + rechazados no coincide con el
 fuente, la ejecución queda en `mismatch` y el comando sale con código 1. Repetir un import
 actualiza las filas existentes; nunca las duplica. Las fuentes, campos y licencias están en
 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md), y las decisiones tomadas (altura de los edificios,
-filtro de la red, troceo) en el [docs/DECISIONS.md](../docs/DECISIONS.md) del workspace (ADR-001 a
-ADR-008, fuera de este repositorio).
+filtro de la red, troceo) en DECISIONS.md (ADR-001 a ADR-008), en la carpeta docs del Drive del
+equipo (fuera de este repositorio).
+
+Cada import, al empezar, marca como `stale` la última asociación a tramos de los tipos que puede
+cambiar y avisa en el log: después de importar hay que volver a ejecutar `npm run associate`
+(ver la sección siguiente y el ADR-010).
 
 ### Atribución de los datos
 
@@ -83,6 +90,51 @@ Origen de los datos: Ayuntamiento de Zaragoza (IDEZAR), edificios: vigencia 2026
 arbolado: inventario 2022 (capa `arboles_2022`).
 
 © OpenStreetMap contributors, ODbL.
+
+## Asociación a tramos peatonales (PBI-3.2)
+
+Después de los imports, `npm run associate` liga cada árbol y cada edificio a los tramos de
+`street_segments` que tiene cerca. Todo se calcula en PostGIS (unos 3 minutos con los datos
+reales):
+
+```bash
+npm run import:all            # 1. datos
+npm run associate             # 2. árboles y edificios
+npm run associate -- --type=trees       # o un solo tipo (--type=buildings)
+```
+
+1. **Tramo más cercano**, medido en metros (los edificios, desde su polígono). Si está a
+   `ASSOC_MAX_NEAREST_M` (150 m) o menos, se guarda con `is_nearest = true`; si no, el elemento va a
+   `unassociated_elements` con `reason = 'isolated'`, su tramo más cercano y la distancia
+   (`no_segment` si no hay tramos, `invalid_geometry` si su geometría no es válida).
+2. **Asociaciones por radio**: cada elemento asociado se liga además a todos los tramos que tiene
+   a `R` metros o menos (`is_nearest = false`). Árboles: `R = ASSOC_TREE_RADIUS_M` (25 m).
+   Edificios: `R = max(ASSOC_BUILDING_MIN_RADIUS_M (30 m), height_m × ASSOC_BUILDING_HEIGHT_FACTOR (1,5))`.
+
+Cada tipo se recalcula desde cero en una transacción (repetir el comando da el mismo resultado) y
+se guarda en `association_runs`. El comando imprime una tabla por tipo (total, asociados y %,
+aislados, asociaciones por radio, tramos por elemento, media y p95 de la distancia, segundos) y
+sale con código 1 si asociados + no asociados no coincide con el total, si algún elemento está en
+las dos tablas (`mismatch`) o si un tipo queda por debajo de `ASSOC_MIN_PCT` (95 %,
+`below_threshold`). Si la última ejecución de un tipo está en `stale`, un import posterior ha
+podido cambiar los datos y hay que volver a ejecutar el comando. Los criterios y la medición que
+los justifica: ver DECISIONS.md (PBI-3.2, ADR-009 y ADR-010) en la carpeta docs del Drive del
+equipo.
+
+| Tabla | Contenido |
+| --- | --- |
+| `segment_trees` | `segment_id`, `tree_id`, `distance_m`, `is_nearest`; PK `(segment_id, tree_id)`, un solo `is_nearest` por árbol |
+| `segment_buildings` | lo mismo con `building_id` |
+| `unassociated_elements` | `element_type` (`tree` / `building`), `element_id`, `nearest_segment_id`, `nearest_distance_m`, `reason`, `association_run_id` |
+| `association_runs` | una fila por tipo y ejecución: `params`, `total`, `nearest_ok`, `isolated`, `no_segment`, `invalid_geometry`, `radius_links`, `pct_associated`, `avg_segments_per_element`, `status`, `details` |
+
+Las claves foráneas a `street_segments`, `trees` y `buildings` son `ON DELETE CASCADE`: si un
+import borra un elemento o un tramo, sus asociaciones desaparecen con él.
+
+Para la PBI-5, `src/services/geo/associationService.js` ofrece `getTreesBySegment(segmentId)`,
+`getBuildingsBySegment(segmentId)` y `getNearestSegmentForElement(type, id)`, con `distance_m`,
+`is_nearest` y los atributos de sombra (`height_m`, `height_source`, `crown_diameter_m`). Todavía
+no hay endpoints (PBI-3.3).
 
 ## Desarrollo
 
@@ -143,6 +195,10 @@ npm start
   `BUILDING_MAX_HEIGHT_PER_FLOOR_M` (8), `BUILDING_MAX_SINGLE_STOREY_HEIGHT_M` (40),
   `BUILDING_SUSPICIOUS_SINGLE_STOREY_HEIGHT_M` (15), `BUILDING_SUSPICIOUS_HEIGHT_PER_FLOOR_M` (6):
   estimación de la altura de los edificios (ver ADR-001 en el `docs/DECISIONS.md` del workspace).
+- `ASSOC_MAX_NEAREST_M` (150), `ASSOC_KNN_CANDIDATES` (10), `ASSOC_TREE_RADIUS_M` (25),
+  `ASSOC_BUILDING_MIN_RADIUS_M` (30), `ASSOC_BUILDING_HEIGHT_FACTOR` (1.5), `ASSOC_MIN_PCT` (95),
+  `ASSOC_BATCH_SIZE` (20000): asociación a tramos peatonales (`src/config/associationConfig.js`;
+  ver ADR-009 en el `docs/DECISIONS.md` del workspace).
 - `ORS_API_KEY`: clave de API de OpenRouteService / HeiGIT que usan el autocompletado y el cálculo
   de rutas. Guárdala solo en el `backend/.env` ignorado por Git o en el entorno del servidor.
   `OPENROUTESERVICE_API_KEY` sigue funcionando como alternativa para configuraciones antiguas.
@@ -240,11 +296,40 @@ tests automáticos simulan OpenRouteService y no consumen cuota.
 
 ## Checklist de verificación manual
 
+### PBI-3.2 - Asociación de edificios y arbolado a tramos peatonales
+
+Valores reales del 2026-10-19, sobre los datos de la PBI-3.1.
+
+- [ ] Con los datos de la PBI-3.1 cargados, `npm run db:migrate` solo aplica
+      `20261019000001-create-associations` (`SELECT name FROM sequelize_meta;` → 5 migraciones).
+- [ ] `npm run associate` termina con `success` en `tree` y `building`, en unos 3 minutos, y con
+      código de salida 0.
+- [ ] `SELECT element_type, status, total, nearest_ok, isolated, radius_links, pct_associated FROM association_runs ORDER BY id DESC LIMIT 2;`
+      → `tree`: 172.543 / 172.543 / 0 / 1.008.612 / 100,000; `building`: 38.963 / 38.690 /
+      273 / 428.619 / 99,299.
+- [ ] Cuadre:
+      `SELECT (SELECT count(*) FROM buildings), (SELECT count(*) FROM segment_buildings WHERE is_nearest), (SELECT count(*) FROM unassociated_elements WHERE element_type = 'building');`
+      → 38.963 = 38.690 + 273 (con `trees`, `segment_trees` y `'tree'`: 172.543 = 172.543 + 0).
+- [ ] Ningún elemento en las dos tablas:
+      `SELECT count(*) FROM unassociated_elements u JOIN segment_buildings sb ON sb.building_id = u.element_id WHERE u.element_type = 'building';` → 0.
+- [ ] Aislados más lejanos:
+      `SELECT element_id, round(nearest_distance_m) FROM unassociated_elements ORDER BY nearest_distance_m DESC LIMIT 5;`
+      → 23461 (588), 2974 (461), 2971 (453), 23379 (442), 22830 (429): edificios de campo o de la
+      periferia.
+- [ ] El radio de los edificios depende de la altura:
+      `SELECT count(*) FROM segment_buildings sb JOIN buildings b ON b.id = sb.building_id WHERE NOT sb.is_nearest AND sb.distance_m > GREATEST(30, b.height_m * 1.5);` → 0.
+- [ ] `npm run associate -- --type=trees` otra vez: `SELECT count(*) FROM segment_trees;` sigue en
+      1.181.155.
+- [ ] Tras cualquier `npm run import:*`, el log avisa de que hay que ejecutar `npm run associate`
+      y `SELECT element_type, status FROM association_runs ORDER BY id DESC LIMIT 2;` muestra `stale`
+      en el tipo afectado.
+
 ### PBI-3.1 - Importación de edificios y arbolado
 
 - [ ] `docker compose up -d db` y `npm run db:migrate` terminan sin errores y aplican las cuatro
-      migraciones (`SELECT name FROM sequelize_meta;`). En una base de datos que ya tenía las tres
-      primeras, `npm run db:migrate` solo añade `20261006000004-add-building-height-suspicious`.
+      migraciones de la PBI-3.1 (`SELECT name FROM sequelize_meta;`; cinco desde la PBI-3.2). En
+      una base de datos que ya tenía las tres primeras, `npm run db:migrate` solo añade
+      `20261006000004-add-building-height-suspicious`.
 - [ ] `npm run import:all` termina con `SUCCESS` en `buildings`, `trees` y `streets`, y con código
       de salida 0.
 - [ ] Los conteos coinciden con la fuente:
