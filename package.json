@@ -21,6 +21,7 @@
     "import:trees": "node src/integrations/idezar/importTrees.js",
     "import:streets": "node src/integrations/osm/importStreets.js",
     "import:all": "node src/integrations/importAll.js",
+    "associate": "node src/cli/associate.js",
     "test:integration": "jest --config jest.integration.config.js --coverage",
     "test:all": "jest --config jest.all.config.js --coverage"
   },
