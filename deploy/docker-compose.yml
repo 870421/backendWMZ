@@ -1,0 +1,59 @@
+# Producción en la VM de Azure (/opt/weathermapz). Solo Caddy publica puertos:
+# sirve el frontend, redirige /api al backend y obtiene el certificado HTTPS de Let's Encrypt.
+# Las variables salen de /opt/weathermapz/.env (plantilla: deploy/production.env.example).
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Define DOMAIN en .env}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    # Sin depends_on: backend y frontend se despliegan desde repos distintos y por separado.
+    # Mientras uno no esté arrancado, Caddy responde 502 solo para sus rutas.
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?Define FRONTEND_IMAGE en .env}:${FRONTEND_TAG:-latest}
+    restart: unless-stopped
+
+  backend:
+    image: ${BACKEND_IMAGE:?Define BACKEND_IMAGE en .env}:${BACKEND_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      CORS_ORIGIN: https://${DOMAIN}
+      FRONTEND_URL: https://${DOMAIN}
+      GOOGLE_CALLBACK_URL: https://${DOMAIN}/api/auth/google/callback
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Define DB_NAME en .env}
+      POSTGRES_USER: ${DB_USER:?Define DB_USER en .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

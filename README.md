@@ -248,6 +248,13 @@ OpenRouteService están simuladas en los tests, por lo que CI no necesita `ORS_A
 npm start
 ```
 
+## Despliegue en producción (Azure)
+
+Producción corre en una máquina virtual de Azure con Docker Compose: Caddy (HTTPS), frontend, backend y PostGIS.
+Cada push a `main` ejecuta el workflow `Deploy`, que pasa `npm run ci`, publica la imagen en GHCR
+y la despliega por SSH aplicando antes las migraciones. La configuración del servidor y los pasos
+para crearlo están en [deploy/README.md](deploy/README.md).
+
 ## Variables de entorno
 
 - `NODE_ENV`: entorno de ejecución.
