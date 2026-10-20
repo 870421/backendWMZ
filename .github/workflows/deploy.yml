@@ -1,0 +1,124 @@
+name: Deploy
+
+# Cada push a main pasa las comprobaciones de CI, publica la imagen en GHCR y la despliega en el
+# servidor de producción (VM de Azure). Solo despliega si el repositorio tiene la variable
+# DEPLOY_HOST, así los forks construyen la imagen pero nunca intentan conectarse al servidor.
+# Ver deploy/README.md.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Lint, check and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend checks
+        run: npm run ci
+
+  image:
+    name: Build and push image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build and push to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "$image:latest" -t "$image:${GITHUB_SHA}" .
+          docker push "$image:${GITHUB_SHA}"
+          docker push "$image:latest"
+
+  deploy:
+    name: Deploy to production server
+    needs: image
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Copy Compose and Caddy configuration
+        env:
+          TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+        run: scp deploy/docker-compose.yml deploy/Caddyfile "$TARGET:/opt/weathermapz/"
+
+      - name: Pull image, migrate and restart
+        env:
+          TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | ssh "$TARGET" "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+          ssh "$TARGET" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/weathermapz
+          trap 'docker logout ghcr.io >/dev/null' EXIT
+          docker compose pull backend
+          docker compose up -d db
+          docker compose run --rm backend npm run db:migrate
+          docker compose up -d backend caddy
+          docker image prune -f
+          REMOTE
+
+      - name: Check API health
+        env:
+          DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "https://$DEPLOY_DOMAIN/api/health"; then exit 0; fi
+            sleep 10
+          done
+          echo "La API no responde en https://$DEPLOY_DOMAIN/api/health" >&2
+          exit 1
