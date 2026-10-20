@@ -13,10 +13,22 @@ function addCounts(target, counts = {}) {
  * the source; otherwise it is 'mismatch' and stale rows are kept.
  *
  * mapItem(item) => { sourceId, rejection, raw? } | { sourceId, records, stats, warnings, raw? }
- * store: { createRun, finishRun, insertRejections, upsertBatch(records, runId), deleteStale(runId) }
+ * store: { createRun, finishRun, insertRejections, upsertBatch(records, runId), deleteStale(runId),
+ *          markAssociationsStale?(runId) }
+ *
+ * Any import may change or delete rows that the street associations point to, so it first marks
+ * the latest association runs of the affected types as 'stale' (ADR-010).
  */
 async function runImport({ dataset, sourceUrl, pages, mapItem, store, batchSize = 500 }) {
   const runId = await store.createRun({ dataset, sourceUrl });
+  if (store.markAssociationsStale) {
+    const staleRuns = await store.markAssociationsStale(runId);
+    if (staleRuns > 0) {
+      logger.warn(
+        `[${dataset}] street associations are now stale; run "npm run associate" after the import`
+      );
+    }
+  }
   const seen = new Set();
   const details = { stats: {}, rejectionReasons: {}, warnings: 0, repairedGeometries: 0 };
   let sourceCount = null;

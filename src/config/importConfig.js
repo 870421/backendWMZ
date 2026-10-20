@@ -42,4 +42,4 @@ const importConfig = {
   }
 };
 
-module.exports = { importConfig };
+module.exports = { importConfig, numberFromEnv };
