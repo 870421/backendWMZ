@@ -147,10 +147,44 @@ equipo.
 Las claves foráneas a `street_segments`, `trees` y `buildings` son `ON DELETE CASCADE`: si un
 import borra un elemento o un tramo, sus asociaciones desaparecen con él.
 
-Para la PBI-5, `src/services/geo/associationService.js` ofrece `getTreesBySegment(segmentId)`,
-`getBuildingsBySegment(segmentId)` y `getNearestSegmentForElement(type, id)`, con `distance_m`,
-`is_nearest` y los atributos de sombra (`height_m`, `height_source`, `crown_diameter_m`). Todavía
-no hay endpoints (PBI-3.3).
+Como acceso general a PBI-3.2, `src/services/geo/associationService.js` ofrece
+`getTreesBySegment(segmentId)`, `getBuildingsBySegment(segmentId)` y
+`getNearestSegmentForElement(type, id)`, con `distance_m`, `is_nearest` y los atributos urbanos
+(`height_m`, `height_source`, `crown_diameter_m`). PBI-5.2 no limita las sombras a estos enlaces:
+su radio fijo puede quedarse corto con el Sol bajo, por lo que hace una preselección dinámica
+según la longitud solar efectiva. Todavía no hay endpoints de datos urbanos (PBI-3.3).
+
+## Posición solar y sombras sobre tramos (PBI-5.1 y PBI-5.2)
+
+`src/domain/solar/solarPosition.js` calcula acimut (grados desde el norte, sentido horario) y
+elevación aparente con SunCalc. Recibe fecha y hora civil, coordenadas y, opcionalmente, una zona
+IANA; usa `Europe/Madrid` por defecto. Luxon convierte esa hora a UTC y rechaza horas inexistentes
+o ambiguas durante los cambios de horario de verano.
+
+`src/services/shadow/shadowService.js` expone `calculateSegmentShadows(...)` para los servicios de
+routing que se implementen después. Recibe los mismos datos solares y una lista no vacía de IDs de
+`street_segments`. No se ha añadido un endpoint ni se persisten resultados: una sombra solo es
+válida para el instante solicitado.
+
+La consulta PostGIS de `src/repositories/shadowRepository.js`:
+
+1. transforma tramos y elementos urbanos a EPSG:25830 para trabajar en metros;
+2. desplaza cada huella en dirección opuesta al acimut una distancia
+   `altura / tan(elevación)`;
+3. modela cada edificio con la envolvente convexa de la huella y su copia desplazada;
+4. modela la copa de cada árbol como un círculo de 16 segmentos y proyecta la cápsula resultante;
+5. intersecta los polígonos con las líneas completas de los tramos y une solapes antes de calcular
+   `shadedLengthM` y `shadeRatio`.
+
+La envolvente convexa es exacta para huellas convexas y conservadora para edificios cóncavos o
+multipartes: puede sobreestimar la sombra en sus entrantes. No se modelan relieve, fachadas,
+transparencia de copas ni oclusión entre objetos. Con elevación menor o igual a cero el servicio
+devuelve `sun_below_horizon` y no proyecta geometrías.
+
+Los edificios usan `height_m` y conservan `height_source` y `height_suspicious` en cada asociación.
+Un árbol solo participa si tiene `height_m` y `crown_diameter_m` positivos; nunca se rellenan esos
+campos. `dataQuality` devuelve los totales utilizables y los omitidos por altura, copa o geometría.
+La respuesta conserva tanto `segmentId`/`segmentSourceId` como `elementId`/`sourceId`.
 
 ## Desarrollo
 
@@ -172,6 +206,23 @@ npm run test:all              # ambos, con cobertura combinada
 
 Los tests nunca llaman a APIs externas; las respuestas de IDEZAR y Overpass salen de fixtures en
 `src/tests/fixtures`.
+
+### Cobertura conjunta con PostGIS
+
+La verificación local del 2026-10-20, ejecutada con PostgreSQL/PostGIS mediante
+`npm run test:all -- --runInBand`, completó 25 suites y 262 tests sin fallos. La cobertura
+combinada de tests unitarios, HTTP e integración fue:
+
+| Métrica | Cobertura |
+| --- | ---: |
+| Sentencias | 97,91 % |
+| Ramas | 91,15 % |
+| Funciones | 97,48 % |
+| Líneas | 98,60 % |
+
+Estas cifras incluyen `src/tests/integration/shadows.test.js`, que ejecuta la proyección y la
+asociación de sombras de PBI-5.2 contra PostGIS. Pueden variar al añadir código o pruebas; el
+resultado vigente debe comprobarse volviendo a ejecutar el comando.
 
 ## Comprobaciones
 
@@ -464,6 +515,18 @@ Las respuestas nunca incluyen credenciales, cuerpos del proveedor ni detalles in
 tests automáticos simulan OpenRouteService y no consumen cuota.
 
 ## Checklist de verificación manual
+
+### PBI-5.1 y PBI-5.2 - Posición solar y sombras
+
+- [ ] `npm test -- --runInBand` valida la referencia NOAA de Zaragoza, horario de verano,
+      entradas inválidas, dirección y longitud de los vectores y Sol bajo el horizonte.
+- [ ] Con PostGIS arrancado, `npm run test:integration -- --runInBand
+      src/tests/integration/shadows.test.js` proyecta un edificio y un árbol sintéticos hacia el
+      oeste, comprueba que no sombrean el tramo este y verifica longitudes de 4 m.
+- [ ] La misma prueba confirma que árboles sin altura o sin diámetro de copa se contabilizan como
+      incompletos y no producen sombras inventadas.
+- [ ] `npm run ci` termina correctamente. No hay migraciones, variables de entorno ni endpoints
+      nuevos para estas PBIs.
 
 ### PBI-3.2 - Asociación de edificios y arbolado a tramos peatonales
 
