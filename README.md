@@ -147,10 +147,12 @@ equipo.
 Las claves foráneas a `street_segments`, `trees` y `buildings` son `ON DELETE CASCADE`: si un
 import borra un elemento o un tramo, sus asociaciones desaparecen con él.
 
-Para la PBI-5, `src/services/geo/associationService.js` ofrece `getTreesBySegment(segmentId)`,
-`getBuildingsBySegment(segmentId)` y `getNearestSegmentForElement(type, id)`, con `distance_m`,
-`is_nearest` y los atributos de sombra (`height_m`, `height_source`, `crown_diameter_m`). Todavía
-no hay endpoints (PBI-3.3).
+Como acceso general a PBI-3.2, `src/services/geo/associationService.js` ofrece
+`getTreesBySegment(segmentId)`, `getBuildingsBySegment(segmentId)` y
+`getNearestSegmentForElement(type, id)`, con `distance_m`, `is_nearest` y los atributos urbanos
+(`height_m`, `height_source`, `crown_diameter_m`). PBI-5.2 no limita las sombras a estos enlaces:
+su radio fijo puede quedarse corto con el Sol bajo, por lo que hace una preselección dinámica
+según la longitud solar efectiva. Todavía no hay endpoints de datos urbanos (PBI-3.3).
 
 ## Posición solar y sombras sobre tramos (PBI-5.1 y PBI-5.2)
 
