@@ -136,16 +136,23 @@ A partir de ahí, cada merge a `main` despliega solo su parte.
 Las imágenes de GHCR son privadas por defecto. El workflow inicia sesión en GHCR desde el servidor
 con el token temporal del job y la cierra al terminar, así que no hace falta hacerlas públicas.
 
-## 5. Importar los datos urbanos
+## 5. Importar los datos urbanos y asociarlos a los tramos
 
-Se hace a mano, una vez y cuando se quiera refrescar (unos 20 minutos):
+Se hace a mano, una vez y cada vez que se quiera refrescar: primero los imports (unos 20 minutos)
+y después la asociación de árboles y edificios a los tramos peatonales (unos 3 minutos). Después
+de cualquier `import:*` hay que volver a ejecutar `associate`.
 
 ```bash
 ssh azureuser@<DOMAIN>
 sudo -iu deploy
 cd /opt/weathermapz
 docker compose run --rm backend npm run import:all
+docker compose run --rm backend npm run associate
 ```
+
+Con 1 GB de RAM, si alguno de los dos se queda sin memoria (el contenedor sale con código 137 o
+`sudo dmesg` muestra "Out of memory"), amplía la VM un rato a `Standard_B2als_v2` (4 GB), repite el
+comando y vuelve a `Standard_B2ats_v2`. Azure cobra por horas.
 
 ## 6. Login con Google
 
