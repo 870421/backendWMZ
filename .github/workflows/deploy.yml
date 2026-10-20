@@ -107,7 +107,9 @@ jobs:
           trap 'docker logout ghcr.io >/dev/null' EXIT
           docker compose pull backend
           docker compose up -d db
-          docker compose run --rm backend npm run db:migrate
+          # -T y </dev/null: sin ellos, `run` lee la entrada estándar y se come el resto de
+          # este script, que llega a bash por esa misma entrada.
+          docker compose run --rm -T backend npm run db:migrate </dev/null
           docker compose up -d backend caddy
           docker image prune -f
           REMOTE
