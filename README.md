@@ -207,6 +207,23 @@ npm run test:all              # ambos, con cobertura combinada
 Los tests nunca llaman a APIs externas; las respuestas de IDEZAR y Overpass salen de fixtures en
 `src/tests/fixtures`.
 
+### Cobertura conjunta con PostGIS
+
+La verificación local del 2026-10-20, ejecutada con PostgreSQL/PostGIS mediante
+`npm run test:all -- --runInBand`, completó 25 suites y 262 tests sin fallos. La cobertura
+combinada de tests unitarios, HTTP e integración fue:
+
+| Métrica | Cobertura |
+| --- | ---: |
+| Sentencias | 97,91 % |
+| Ramas | 91,15 % |
+| Funciones | 97,48 % |
+| Líneas | 98,60 % |
+
+Estas cifras incluyen `src/tests/integration/shadows.test.js`, que ejecuta la proyección y la
+asociación de sombras de PBI-5.2 contra PostGIS. Pueden variar al añadir código o pruebas; el
+resultado vigente debe comprobarse volviendo a ejecutar el comando.
+
 ## Comprobaciones
 
 ```bash
