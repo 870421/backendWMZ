@@ -22,6 +22,19 @@ Cualquier producto o documento que muestre estos datos debe incluir:
 
 Todos los imports piden o reciben coordenadas WGS84 y las guardan en EPSG:4326.
 
+## Uso en el cálculo de sombras (PBI-5.2)
+
+Las sombras usan las huellas y `height_m` de `buildings`, y el punto, `height_m` y
+`crown_diameter_m` de `trees`. Los cálculos métricos transforman temporalmente las geometrías a
+EPSG:25830; los datos almacenados siguen en EPSG:4326.
+
+No se incorpora ninguna fuente nueva ni una supuesta API municipal de sombras. Los edificios
+conservan `height_source` (`measured`, `floors_estimate` o `default`) y `height_suspicious` en el
+resultado para que el consumidor conozca su procedencia. Los árboles sin altura (15.545 en la
+medición de 2026-10-06) o sin diámetro de copa (138.836) se omiten y se contabilizan por motivo;
+no se les asigna un valor por defecto. Los conteos pueden cambiar cuando se vuelva a importar la
+fuente y `getUrbanDataQuality()` devuelve el estado presente de la base de datos.
+
 ## WFS de IDEZAR (Ayuntamiento de Zaragoza)
 
 - Endpoint: `https://idezar-sig.zaragoza.es/servicios/geoserver/wfs` (GeoServer, WFS 2.0.0).
