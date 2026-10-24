@@ -4,7 +4,7 @@
 #   ssh azureuser@<IP> 'sudo sh -s' -- "<clave pública SSH de GitHub Actions>" < deploy/setup-server.sh
 #
 # Instala Docker, abre solo SSH/HTTP/HTTPS en el cortafuegos, añade 2 GB de swap (el import de
-# edificios y PostGIS no caben holgados en 2 GB de RAM) y crea el usuario `deploy`, que es el que
+# edificios y PostGIS no caben holgados en 1 GB de RAM) y crea el usuario `deploy`, que es el que
 # usa GitHub Actions. Ojo: estar en el grupo docker equivale a ser root en el servidor.
 set -eu
 
