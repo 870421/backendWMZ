@@ -39,12 +39,15 @@ Azure**:
 - Suscripción: **Azure for Students**.
 - Grupo de recursos: nuevo, `weathermapz-rg`.
 - Nombre de la máquina virtual: `weathermapz-vm`.
-- Región: una europea que permita la suscripción, por ejemplo `(Europe) Spain Central` o
-  `(Europe) West Europe`. Si al elegir el tamaño da error de región no permitida, prueba otra.
+- Región: `(Europe) Spain Central`, la que usa producción. La suscripción de estudiante solo
+  permite `austriaeast`, `spaincentral`, `denmarkeast`, `norwayeast` y `belgiumcentral`; otras
+  regiones (por ejemplo West Europe) dan error de región no permitida.
 - Opciones de disponibilidad: no se requiere redundancia de la infraestructura.
 - Tipo de seguridad: estándar.
 - Imagen: **Ubuntu Server 24.04 LTS - x64 Gen2**.
-- Tamaño: **Standard_B1ms** (1 vCPU, 2 GB). Comprueba el precio mensual que muestra el portal.
+- Tamaño: **Standard_B2ats_v2** (2 vCPU AMD x64, 1 GB de RAM), el más pequeño x64 disponible en
+  esas regiones; `Standard_B1ms` (2 GB) no está disponible en ninguna. Comprueba el precio mensual
+  que muestra el portal (unos 15 $/mes entre VM, disco e IP).
 - Tipo de autenticación: **Clave pública SSH**. Usuario: `azureuser`. Origen de la clave: usar una
   clave pública existente y pega el contenido de tu `~/.ssh/id_ed25519.pub`.
 - Puertos de entrada públicos: permitir **SSH (22), HTTP (80) y HTTPS (443)**.
