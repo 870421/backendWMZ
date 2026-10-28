@@ -22,6 +22,7 @@ async function projectAndAssociateShadows({
        SELECT id, source_id, ST_Transform(geom, 25830) AS geom_m
        FROM street_segments
        WHERE id IN (:segmentIds)
+         AND ST_IsValid(geom) AND NOT ST_IsEmpty(geom)
      ), building_candidates AS (
        SELECT DISTINCT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious,
          ST_Transform(b.geom, 25830) AS base_geom

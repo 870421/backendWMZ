@@ -38,6 +38,7 @@ describe('shadow projection and segment association (PostGIS)', () => {
     await sequelize.query(
       `INSERT INTO trees (source, source_id, height_m, crown_diameter_m, geom) VALUES
        ('shadow-test', 'T1', 10, 4, ${toWgs84(`POINT(${X0 + 20} ${Y0})`)}),
+       ('shadow-test', 'T_OVERLAP', 10, 4, ${toWgs84(`POINT(${X0} ${Y0})`)}),
        ('shadow-test', 'T_NO_HEIGHT', NULL, 4, ${toWgs84(`POINT(${X0 + 20} ${Y0 + 20})`)}),
        ('shadow-test', 'T_NO_CROWN', 10, NULL, ${toWgs84(`POINT(${X0 + 20} ${Y0 + 40})`)})`
     );
@@ -59,9 +60,14 @@ describe('shadow projection and segment association (PostGIS)', () => {
     const bySource = Object.fromEntries(projected.map((row) => [row.segmentSourceId, row]));
 
     expect(bySource.BUILDING_WEST.shadedLengthM).toBeCloseTo(4, 1);
-    expect(bySource.BUILDING_WEST.associations).toEqual([
-      expect.objectContaining({ elementType: 'building', sourceId: 'B1', heightM: 10 })
-    ]);
+    expect(bySource.BUILDING_WEST.associations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ elementType: 'building', sourceId: 'B1', heightM: 10 }),
+        expect.objectContaining({ elementType: 'tree', sourceId: 'T_OVERLAP', heightM: 10 })
+      ])
+    );
+    // The building and tree cover the same four metres. Their overlap must not be counted twice.
+    expect(bySource.BUILDING_WEST.shadedLengthM).toBeCloseTo(4, 1);
     expect(bySource.NO_SHADOW_EAST).toMatchObject({
       shadedLengthM: 0,
       shadeRatio: 0,
@@ -82,8 +88,8 @@ describe('shadow projection and segment association (PostGIS)', () => {
     await expect(shadowRepository.getUrbanDataQuality()).resolves.toMatchObject({
       buildingsTotal: 1,
       buildingsUsable: 1,
-      treesTotal: 3,
-      treesUsable: 1,
+      treesTotal: 4,
+      treesUsable: 2,
       treesMissingHeight: 1,
       treesMissingCrownDiameter: 1
     });
