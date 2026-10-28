@@ -1,5 +1,6 @@
 const { QueryTypes } = require('sequelize');
 
+const { associationConfig } = require('../config/associationConfig');
 const { sequelize } = require('../config/database');
 
 function select(sql, replacements) {
@@ -23,19 +24,37 @@ async function projectAndAssociateShadows({
        FROM street_segments
        WHERE id IN (:segmentIds)
          AND ST_IsValid(geom) AND NOT ST_IsEmpty(geom)
-     ), building_candidates AS (
-       SELECT DISTINCT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious,
-         ST_Transform(b.geom, 25830) AS base_geom
+     ), building_candidate_rows AS (
+       SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
+       FROM buildings b
+       JOIN segment_buildings sb ON sb.building_id = b.id
+       JOIN selected s ON s.id = sb.segment_id
+       WHERE b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
+         AND sb.distance_m <= b.height_m * :lengthPerHeight
+       UNION ALL
+       SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
        FROM buildings b
        JOIN selected s ON ST_DWithin(
          b.geom::geography,
          ST_Transform(s.geom_m, 4326)::geography,
          b.height_m * :lengthPerHeight
        )
-       WHERE b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
-     ), tree_candidates AS (
-       SELECT DISTINCT t.id, t.source_id, t.height_m, t.crown_diameter_m,
-         ST_Buffer(ST_Transform(t.geom, 25830), t.crown_diameter_m / 2, 'quad_segs=8') AS base_geom
+       WHERE :useExtendedBuildingSearch
+         AND b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
+     ), building_candidates AS (
+       SELECT DISTINCT id, source_id, height_m, height_source, height_suspicious,
+         ST_Transform(geom, 25830) AS base_geom
+       FROM building_candidate_rows
+     ), tree_candidate_rows AS (
+       SELECT t.id, t.source_id, t.height_m, t.crown_diameter_m, t.geom
+       FROM trees t
+       JOIN segment_trees st ON st.tree_id = t.id
+       JOIN selected s ON s.id = st.segment_id
+       WHERE t.height_m > 0 AND t.crown_diameter_m > 0
+         AND ST_IsValid(t.geom) AND NOT ST_IsEmpty(t.geom)
+         AND st.distance_m <= t.height_m * :lengthPerHeight + t.crown_diameter_m / 2
+       UNION ALL
+       SELECT t.id, t.source_id, t.height_m, t.crown_diameter_m, t.geom
        FROM trees t
        JOIN selected s ON ST_DWithin(
          t.geom::geography,
@@ -44,6 +63,11 @@ async function projectAndAssociateShadows({
        )
        WHERE t.height_m > 0 AND t.crown_diameter_m > 0
          AND ST_IsValid(t.geom) AND NOT ST_IsEmpty(t.geom)
+         AND t.height_m * :lengthPerHeight + t.crown_diameter_m / 2 > :treeAssociationRadiusM
+     ), tree_candidates AS (
+       SELECT DISTINCT id, source_id, height_m, crown_diameter_m,
+         ST_Buffer(ST_Transform(geom, 25830), crown_diameter_m / 2, 'quad_segs=8') AS base_geom
+       FROM tree_candidate_rows
      ), building_shadows AS (
        SELECT 'building'::text AS element_type, id AS element_id, source_id, height_m,
          height_source, height_suspicious, NULL::double precision AS crown_diameter_m,
@@ -106,7 +130,14 @@ async function projectAndAssociateShadows({
      LEFT JOIN coverage c ON c.segment_id = s.id
      GROUP BY s.id, s.source_id, s.geom_m, c.shaded_length_m
      ORDER BY s.id`,
-    { segmentIds, lengthPerHeight, eastPerHeight, northPerHeight }
+    {
+      segmentIds,
+      lengthPerHeight,
+      eastPerHeight,
+      northPerHeight,
+      treeAssociationRadiusM: associationConfig.treeRadiusM,
+      useExtendedBuildingSearch: lengthPerHeight > associationConfig.buildingHeightFactor
+    }
   );
 }
 

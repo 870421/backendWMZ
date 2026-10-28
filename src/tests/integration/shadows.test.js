@@ -42,6 +42,22 @@ describe('shadow projection and segment association (PostGIS)', () => {
        ('shadow-test', 'T_NO_HEIGHT', NULL, 4, ${toWgs84(`POINT(${X0 + 20} ${Y0 + 20})`)}),
        ('shadow-test', 'T_NO_CROWN', 10, NULL, ${toWgs84(`POINT(${X0 + 20} ${Y0 + 40})`)})`
     );
+    await sequelize.query(
+      `INSERT INTO segment_buildings (segment_id, building_id, distance_m, is_nearest)
+       SELECT s.id, b.id, ST_Distance(s.geom::geography, b.geom::geography), false
+       FROM street_segments s CROSS JOIN buildings b
+       WHERE ST_DWithin(
+         s.geom::geography,
+         b.geom::geography,
+         GREATEST(30, b.height_m * 1.5)
+       )`
+    );
+    await sequelize.query(
+      `INSERT INTO segment_trees (segment_id, tree_id, distance_m, is_nearest)
+       SELECT s.id, t.id, ST_Distance(s.geom::geography, t.geom::geography), false
+       FROM street_segments s CROSS JOIN trees t
+       WHERE ST_DWithin(s.geom::geography, t.geom::geography, 25)`
+    );
   });
 
   afterAll(async () => {
