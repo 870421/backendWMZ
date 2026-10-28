@@ -24,6 +24,21 @@ async function projectAndAssociateShadows({
        FROM street_segments
        WHERE id IN (:segmentIds)
          AND ST_IsValid(geom) AND NOT ST_IsEmpty(geom)
+     ), route_extent AS (
+       SELECT ST_Collect(ST_Transform(geom_m, 4326)) AS route_geom
+       FROM selected
+     ), search_limits AS (
+       SELECT
+         COALESCE((SELECT max(height_m) FROM buildings WHERE height_m > 0), 0)
+           * :lengthPerHeight AS building_search_m,
+         COALESCE((SELECT max(height_m * :lengthPerHeight + crown_diameter_m / 2)
+           FROM trees WHERE height_m > 0 AND crown_diameter_m > 0), 0) AS tree_search_m
+     ), search_areas AS (
+       SELECT
+         ST_Envelope(ST_Buffer(e.route_geom::geography, l.building_search_m)::geometry)
+           AS building_bbox,
+         ST_Envelope(ST_Buffer(e.route_geom::geography, l.tree_search_m)::geometry) AS tree_bbox
+       FROM route_extent e CROSS JOIN search_limits l
      ), building_candidate_rows AS (
        SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
        FROM buildings b
@@ -34,9 +49,10 @@ async function projectAndAssociateShadows({
        UNION ALL
        SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
        FROM buildings b
-       JOIN selected s ON ST_DWithin(
+       JOIN search_areas a ON b.geom && a.building_bbox
+       JOIN route_extent e ON ST_DWithin(
          b.geom::geography,
-         ST_Transform(s.geom_m, 4326)::geography,
+         e.route_geom::geography,
          b.height_m * :lengthPerHeight
        )
        WHERE :useExtendedBuildingSearch
@@ -56,9 +72,10 @@ async function projectAndAssociateShadows({
        UNION ALL
        SELECT t.id, t.source_id, t.height_m, t.crown_diameter_m, t.geom
        FROM trees t
-       JOIN selected s ON ST_DWithin(
+       JOIN search_areas a ON t.geom && a.tree_bbox
+       JOIN route_extent e ON ST_DWithin(
          t.geom::geography,
-         ST_Transform(s.geom_m, 4326)::geography,
+         e.route_geom::geography,
          t.height_m * :lengthPerHeight + t.crown_diameter_m / 2
        )
        WHERE t.height_m > 0 AND t.crown_diameter_m > 0
