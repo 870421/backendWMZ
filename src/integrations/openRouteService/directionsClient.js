@@ -37,15 +37,7 @@ function normalizeGeometry(geometry) {
   return { type: 'LineString', coordinates };
 }
 
-function normalizeRoute(data) {
-  if (
-    data?.type !== 'FeatureCollection' ||
-    !Array.isArray(data.features) ||
-    data.features.length === 0
-  )
-    return null;
-
-  const route = data.features[0];
+function normalizeRouteFeature(route) {
   const geometry = normalizeGeometry(route?.geometry);
   const distance = route?.properties?.summary?.distance;
   const duration = route?.properties?.summary?.duration;
@@ -62,7 +54,19 @@ function normalizeRoute(data) {
   return { geometry, distance, duration };
 }
 
-async function getFastestWalkingRoute({ origin, destination }) {
+function normalizeRoutes(data) {
+  if (
+    data?.type !== 'FeatureCollection' ||
+    !Array.isArray(data.features) ||
+    data.features.length === 0
+  )
+    return null;
+
+  const routes = data.features.map(normalizeRouteFeature).filter(Boolean);
+  return routes.length ? routes : null;
+}
+
+async function requestWalkingRoutes({ origin, destination, alternativeRoutes }) {
   if (!env.openRouteServiceApiKey) {
     throw providerError(503, 'Route calculation is not configured.');
   }
@@ -84,7 +88,8 @@ async function getFastestWalkingRoute({ origin, destination }) {
       body: JSON.stringify({
         coordinates,
         preference: 'fastest',
-        instructions: false
+        instructions: false,
+        ...(alternativeRoutes ? { alternative_routes: alternativeRoutes } : {})
       }),
       signal: controller.signal
     });
@@ -98,9 +103,9 @@ async function getFastestWalkingRoute({ origin, destination }) {
       );
     }
 
-    const route = normalizeRoute(await response.json());
-    if (!route) throw providerError(502, 'Invalid route provider response.');
-    return route;
+    const routes = normalizeRoutes(await response.json());
+    if (!routes) throw providerError(502, 'Invalid route provider response.');
+    return routes;
   } catch (error) {
     if (controller.signal.aborted) {
       throw providerError(504, 'Route calculation timed out. Please try again.');
@@ -113,4 +118,20 @@ async function getFastestWalkingRoute({ origin, destination }) {
   }
 }
 
-module.exports = { getFastestWalkingRoute };
+async function getFastestWalkingRoute(points) {
+  const [fastest] = await requestWalkingRoutes(points);
+  return fastest;
+}
+
+async function getAlternativeWalkingRoutes(points) {
+  return requestWalkingRoutes({
+    ...points,
+    alternativeRoutes: {
+      target_count: 2,
+      weight_factor: 1.25,
+      share_factor: 0.8
+    }
+  });
+}
+
+module.exports = { getAlternativeWalkingRoutes, getFastestWalkingRoute };

@@ -1,5 +1,8 @@
 const { env } = require('../config/env');
-const { getFastestWalkingRoute } = require('../integrations/openRouteService/directionsClient');
+const {
+  getAlternativeWalkingRoutes,
+  getFastestWalkingRoute
+} = require('../integrations/openRouteService/directionsClient');
 
 describe('OpenRouteService directions adapter', () => {
   const originalFetch = global.fetch;
@@ -73,6 +76,46 @@ describe('OpenRouteService directions adapter', () => {
       })
     );
     expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('requests and normalizes genuinely distinct walking alternatives', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-0.8891, 41.6488],
+                [-0.878, 41.656]
+              ]
+            },
+            properties: { summary: { distance: 1000, duration: 600 } }
+          },
+          {
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-0.8891, 41.6488],
+                [-0.88, 41.65],
+                [-0.878, 41.656]
+              ]
+            },
+            properties: { summary: { distance: 1100, duration: 660 } }
+          }
+        ]
+      })
+    });
+
+    await expect(getAlternativeWalkingRoutes({ origin, destination })).resolves.toHaveLength(2);
+    const requestBody = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(requestBody.alternative_routes).toEqual({
+      target_count: 2,
+      weight_factor: 1.25,
+      share_factor: 0.8
+    });
   });
 
   it('rejects invalid coordinates before calling the provider', async () => {

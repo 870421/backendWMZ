@@ -1,4 +1,5 @@
 const { calculateFastestRoute } = require('../../services/routing/fastestRouteService');
+const { calculateShadedRouteComparison } = require('../../services/routing/shadedRouteService');
 
 async function postFastestRoute(req, res, next) {
   try {
@@ -9,4 +10,13 @@ async function postFastestRoute(req, res, next) {
   }
 }
 
-module.exports = { postFastestRoute };
+async function postShadedRoute(req, res, next) {
+  try {
+    const comparison = await calculateShadedRouteComparison(req.body);
+    res.status(200).json({ comparison });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { postFastestRoute, postShadedRoute };

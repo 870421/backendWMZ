@@ -521,7 +521,73 @@ Todos los errores usan `{ "error": { "message": "..." } }`:
 Las respuestas nunca incluyen credenciales, cuerpos del proveedor ni detalles internos. Los
 tests automáticos simulan OpenRouteService y no consumen cuota.
 
+## Exposición por tramo (PBI-5.3)
+
+`src/services/shadow/exposureService.js` reutiliza PBI-5.2 para obtener, en una sola consulta por
+lote, `shadePercentage` y `sunPercentage` de cada ID de `street_segments`. Los resultados incluyen
+el instante UTC y la hora civil de referencia. Un cero calculado se devuelve como `available`; un
+tramo inexistente, inválido, de longitud cero o calculado con el Sol bajo el horizonte se devuelve
+como `unavailable` con una razón y porcentajes `null`. No hay endpoint ni persistencia propios.
+
+## Contrato de la Ruta Sombreada (PBI-5.4)
+
+`POST /api/routes/shaded` requiere sesión. Recibe origen, destino, fecha y hora civil; la zona IANA
+es opcional y por defecto es `Europe/Madrid`:
+
+```json
+{
+  "origin": { "lat": 41.6488, "lng": -0.8891 },
+  "destination": { "lat": 41.656, "lng": -0.878 },
+  "date": "2026-06-21",
+  "time": "14:00",
+  "timeZone": "Europe/Madrid"
+}
+```
+
+La respuesta contiene siempre la candidata rápida con su estado de exposición. `shaded` solo
+contiene una geometría diferente si una alternativa tiene cobertura suficiente, mejora al menos
+5 puntos de sombra, no supera un 25 % de duración adicional y vence según el coste de ADR-014.
+En caso contrario vale `null`:
+
+```json
+{
+  "comparison": {
+    "status": "selected",
+    "fastest": {
+      "geometry": { "type": "LineString", "coordinates": [[-0.8891, 41.6488], [-0.878, 41.656]] },
+      "distance": 1250,
+      "duration": 900,
+      "exposure": { "status": "available", "shadePercentage": 22, "sunPercentage": 78 }
+    },
+    "shaded": {
+      "geometry": { "type": "LineString", "coordinates": [[-0.8891, 41.6488], [-0.88, 41.652], [-0.878, 41.656]] },
+      "distance": 1370,
+      "duration": 990,
+      "exposure": { "status": "available", "shadePercentage": 68, "sunPercentage": 32 }
+    },
+    "additionalDurationSeconds": 90,
+    "shadeImprovementPercentagePoints": 46
+  }
+}
+```
+
+Estados posibles: `selected`, `no_better_alternative`, `insufficient_exposure_data` y
+`sun_below_horizon`. Los errores de autenticación, validación y proveedor usan el mismo formato y
+códigos controlados que `/api/routes/fastest`. El endpoint necesita los datos urbanos ya cargados,
+pero no añade migraciones, variables ni dependencias.
+
 ## Checklist de verificación manual
+
+### PBI-5.3 y PBI-5.4 - Exposición y Ruta Sombreada
+
+- [ ] `npm run ci` valida porcentajes, ponderación por longitud, coste, alternativas, API y
+      regresión de la ruta rápida.
+- [ ] Con PostGIS, `npm run test:integration -- --runInBand
+      src/tests/integration/routeSegments.test.js src/tests/integration/shadows.test.js` valida la
+      asociación de corredores, el rechazo de cruces y la unión de sombras solapadas.
+- [ ] Con datos urbanos, sesión y ORS configurado, `POST /api/routes/shaded` devuelve una
+      alternativa real o `shaded: null` con estado explícito; nunca duplica la rápida con otro color.
+- [ ] No hay migraciones, persistencia, dependencias ni variables nuevas.
 
 ### PBI-5.1 y PBI-5.2 - Posición solar y sombras
 
