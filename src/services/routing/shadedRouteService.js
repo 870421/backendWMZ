@@ -68,8 +68,12 @@ async function calculateShadedRouteComparison(
     )
   }));
   const selection = selectShadedRoute(routes);
+  // Without projected shadows (night or a sun too low, ADR-015) the reason is more useful than
+  // the generic lack of exposure data.
   const status =
-    exposureResult?.status === 'sun_below_horizon' ? 'sun_below_horizon' : selection.status;
+    exposureResult && exposureResult.status !== 'calculated'
+      ? exposureResult.status
+      : selection.status;
 
   return {
     status,

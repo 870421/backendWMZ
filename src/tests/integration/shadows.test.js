@@ -110,4 +110,23 @@ describe('shadow projection and segment association (PostGIS)', () => {
       treesMissingCrownDiameter: 1
     });
   });
+
+  it('cuts a slow statement with a controlled 504 and only for that transaction', async () => {
+    await expect(
+      shadowRepository.withStatementTimeout(200, (transaction) =>
+        sequelize.query('SELECT pg_sleep(2)', { transaction })
+      )
+    ).rejects.toMatchObject({
+      status: 504,
+      message: 'Shadow calculation timed out. Please try again.'
+    });
+
+    const [{ statement_timeout: timeout }] = await rows('SHOW statement_timeout');
+    expect(timeout).toBe('0');
+    await expect(
+      shadowRepository.withStatementTimeout(5000, (transaction) =>
+        sequelize.query('SELECT 1 AS ok', { transaction, type: sequelize.QueryTypes.SELECT })
+      )
+    ).resolves.toEqual([{ ok: 1 }]);
+  });
 });

@@ -2,9 +2,37 @@ const { QueryTypes } = require('sequelize');
 
 const { associationConfig } = require('../config/associationConfig');
 const { sequelize } = require('../config/database');
+const { shadowConfig } = require('../config/shadowConfig');
+const { httpError } = require('../utils/httpError');
 
-function select(sql, replacements) {
-  return sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
+// SQLSTATE of a statement cancelled by statement_timeout.
+const QUERY_CANCELED = '57014';
+
+function select(sql, replacements, transaction) {
+  return sequelize.query(sql, { replacements, type: QueryTypes.SELECT, transaction });
+}
+
+/*
+ * Runs callback(transaction) with a PostgreSQL statement_timeout that only applies to that
+ * transaction (SET LOCAL), so a heavy request cannot keep the database busy indefinitely
+ * (ADR-015). A timeout becomes a controlled 504.
+ */
+async function withStatementTimeout(timeoutMs, callback) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError('timeoutMs must be a positive integer');
+  }
+  try {
+    return await sequelize.transaction(async (transaction) => {
+      // SET does not accept bind parameters; timeoutMs is a validated integer.
+      await sequelize.query(`SET LOCAL statement_timeout = ${timeoutMs}`, { transaction });
+      return callback(transaction);
+    });
+  } catch (error) {
+    if (error.original?.code === QUERY_CANCELED) {
+      throw httpError(504, 'Shadow calculation timed out. Please try again.');
+    }
+    throw error;
+  }
 }
 
 /*
@@ -16,10 +44,12 @@ async function projectAndAssociateShadows({
   segmentIds,
   lengthPerHeight,
   eastPerHeight,
-  northPerHeight
+  northPerHeight,
+  timeoutMs = shadowConfig.queryTimeoutMs
 }) {
-  return select(
-    `WITH selected AS (
+  return withStatementTimeout(timeoutMs, (transaction) =>
+    select(
+      `WITH selected AS (
        SELECT id, source_id, ST_Transform(geom, 25830) AS geom_m
        FROM street_segments
        WHERE id IN (:segmentIds)
@@ -147,14 +177,16 @@ async function projectAndAssociateShadows({
      LEFT JOIN coverage c ON c.segment_id = s.id
      GROUP BY s.id, s.source_id, s.geom_m, c.shaded_length_m
      ORDER BY s.id`,
-    {
-      segmentIds,
-      lengthPerHeight,
-      eastPerHeight,
-      northPerHeight,
-      treeAssociationRadiusM: associationConfig.treeRadiusM,
-      useExtendedBuildingSearch: lengthPerHeight > associationConfig.buildingHeightFactor
-    }
+      {
+        segmentIds,
+        lengthPerHeight,
+        eastPerHeight,
+        northPerHeight,
+        treeAssociationRadiusM: associationConfig.treeRadiusM,
+        useExtendedBuildingSearch: lengthPerHeight > associationConfig.buildingHeightFactor
+      },
+      transaction
+    )
   );
 }
 
@@ -184,4 +216,4 @@ async function getUrbanDataQuality() {
   return quality;
 }
 
-module.exports = { getUrbanDataQuality, projectAndAssociateShadows };
+module.exports = { getUrbanDataQuality, projectAndAssociateShadows, withStatementTimeout };
