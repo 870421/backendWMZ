@@ -100,9 +100,13 @@ jobs:
           TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "$GHCR_TOKEN" | ssh "$TARGET" "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+          # Login de GHCR propio de este repo (DOCKER_CONFIG): el Deploy del frontend usa el mismo
+          # usuario del servidor y, si los dos corren a la vez, un login sustituía al otro y el
+          # pull fallaba con "denied".
+          echo "$GHCR_TOKEN" | ssh "$TARGET" "DOCKER_CONFIG=\$HOME/.docker-ghcr-backend docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
           ssh "$TARGET" 'bash -s' <<'REMOTE'
           set -euo pipefail
+          export DOCKER_CONFIG="$HOME/.docker-ghcr-backend"
           cd /opt/weathermapz
           trap 'docker logout ghcr.io >/dev/null' EXIT
           docker compose pull backend

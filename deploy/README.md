@@ -138,6 +138,9 @@ A partir de ahí, cada merge a `main` despliega solo su parte.
 
 Las imágenes de GHCR son privadas por defecto. El workflow inicia sesión en GHCR desde el servidor
 con el token temporal del job y la cierra al terminar, así que no hace falta hacerlas públicas.
+Cada repositorio guarda ese login en su propio directorio (`DOCKER_CONFIG=~/.docker-ghcr-backend` o
+`~/.docker-ghcr-frontend` del usuario `deploy`): el token de un repo no puede descargar la imagen
+del otro, y con un login compartido dos Deploys simultáneos se pisaban y fallaban con `denied`.
 
 ## 5. Importar los datos urbanos y asociarlos a los tramos
 
