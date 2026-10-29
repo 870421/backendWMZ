@@ -43,6 +43,24 @@ describe('segment exposure service', () => {
     });
   });
 
+  it('reports a sun too low to project shadows without inventing exposure', async () => {
+    const shadowsCalculator = jest.fn().mockResolvedValue({
+      status: 'sun_too_low',
+      solarPosition,
+      requestedSegmentIds: [6, 7],
+      segments: [],
+      dataQuality: {}
+    });
+
+    const result = await calculateSegmentExposures({ segmentIds: [6, 7] }, { shadowsCalculator });
+
+    expect(result.status).toBe('sun_too_low');
+    expect(result.segments).toEqual([
+      expect.objectContaining({ segmentId: 6, status: 'unavailable', reason: 'sun_too_low' }),
+      expect.objectContaining({ segmentId: 7, status: 'unavailable', reason: 'sun_too_low' })
+    ]);
+  });
+
   it('distinguishes night from a real zero-shadow result', async () => {
     const shadowsCalculator = jest.fn().mockResolvedValue({
       status: 'sun_below_horizon',

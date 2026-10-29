@@ -181,6 +181,12 @@ multipartes: puede sobreestimar la sombra en sus entrantes. No se modelan reliev
 transparencia de copas ni oclusión entre objetos. Con elevación menor o igual a cero el servicio
 devuelve `sun_below_horizon` y no proyecta geometrías.
 
+Con el Sol por debajo de `SHADOW_MIN_SUN_ELEVATION_DEG` (10° por defecto) tampoco se proyecta y el
+servicio devuelve `sun_too_low`: la sombra mide `altura / tan(elevación)` y, cerca del horizonte, la
+búsqueda llega a abarcar casi toda la ciudad (a 0,2° una ruta de 1 km procesaba más de 2.000
+edificios y árboles). Además, la consulta se ejecuta con un `statement_timeout` de
+`SHADOW_QUERY_TIMEOUT_MS` (20 s por defecto); si se supera, la API responde `504`. Ver ADR-015.
+
 Los edificios usan `height_m` y conservan `height_source` y `height_suspicious` en cada asociación.
 Un árbol solo participa si tiene `height_m` y `crown_diameter_m` positivos; nunca se rellenan esos
 campos. `dataQuality` devuelve los totales utilizables y los omitidos por altura, copa o geometría.
@@ -275,6 +281,9 @@ para crearlo están en [deploy/README.md](deploy/README.md).
   `ASSOC_BUILDING_MIN_RADIUS_M` (30), `ASSOC_BUILDING_HEIGHT_FACTOR` (1.5), `ASSOC_MIN_PCT` (95),
   `ASSOC_BATCH_SIZE` (20000): asociación a tramos peatonales (`src/config/associationConfig.js`;
   ver ADR-009 en el `docs/DECISIONS.md` del workspace).
+- `SHADOW_MIN_SUN_ELEVATION_DEG` (10), `SHADOW_QUERY_TIMEOUT_MS` (20000): elevación solar mínima
+  para proyectar sombras y tiempo máximo de la consulta de sombras (`src/config/shadowConfig.js`;
+  ver ADR-015 en el `docs/DECISIONS.md` del workspace). Son opcionales.
 - `ORS_API_KEY`: clave de API de OpenRouteService / HeiGIT que usan el autocompletado y el cálculo
   de rutas. Guárdala solo en el `backend/.env` ignorado por Git o en el entorno del servidor.
   `OPENROUTESERVICE_API_KEY` sigue funcionando como alternativa para configuraciones antiguas.
@@ -571,10 +580,12 @@ En caso contrario vale `null`:
 }
 ```
 
-Estados posibles: `selected`, `no_better_alternative`, `insufficient_exposure_data` y
-`sun_below_horizon`. Los errores de autenticación, validación y proveedor usan el mismo formato y
-códigos controlados que `/api/routes/fastest`. El endpoint necesita los datos urbanos ya cargados,
-pero no añade migraciones, variables ni dependencias.
+Estados posibles: `selected`, `no_better_alternative`, `insufficient_exposure_data`,
+`sun_below_horizon` y `sun_too_low` (Sol por debajo de `SHADOW_MIN_SUN_ELEVATION_DEG`; no se
+proyectan sombras). Los errores de autenticación, validación y proveedor usan el mismo formato y
+códigos controlados que `/api/routes/fastest`; si el cálculo de sombras supera
+`SHADOW_QUERY_TIMEOUT_MS`, responde `504`. El endpoint necesita los datos urbanos ya cargados,
+pero no añade migraciones ni dependencias.
 
 ## Checklist de verificación manual
 
@@ -587,7 +598,11 @@ pero no añade migraciones, variables ni dependencias.
       asociación de corredores, el rechazo de cruces y la unión de sombras solapadas.
 - [ ] Con datos urbanos, sesión y ORS configurado, `POST /api/routes/shaded` devuelve una
       alternativa real o `shaded: null` con estado explícito; nunca duplica la rápida con otro color.
-- [ ] No hay migraciones, persistencia, dependencias ni variables nuevas.
+- [ ] No hay migraciones, persistencia ni dependencias nuevas. Las variables
+      `SHADOW_MIN_SUN_ELEVATION_DEG` y `SHADOW_QUERY_TIMEOUT_MS` son opcionales (ADR-015).
+- [ ] Con `date` = `2026-10-29` y `time` = `17:55` (Sol a 0,9°), `POST /api/routes/shaded`
+      responde en pocos segundos con `status: "sun_too_low"`; antes la consulta tardaba minutos.
+- [ ] Con `time` = `12:00` del mismo día (Sol a 33,8°) sigue calculando la exposición.
 
 ### PBI-5.1 y PBI-5.2 - Posición solar y sombras
 

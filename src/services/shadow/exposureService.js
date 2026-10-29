@@ -25,12 +25,13 @@ async function calculateSegmentExposures(
   const shadowResult = await shadowsCalculator(input);
   const reference = solarReference(shadowResult.solarPosition);
 
-  if (shadowResult.status === 'sun_below_horizon') {
+  // 'sun_below_horizon' or 'sun_too_low': no shadows were projected for any segment.
+  if (shadowResult.status !== 'calculated') {
     return {
-      status: 'sun_below_horizon',
+      status: shadowResult.status,
       reference,
       segments: shadowResult.requestedSegmentIds.map((segmentId) =>
-        unavailableExposure(segmentId, 'sun_below_horizon')
+        unavailableExposure(segmentId, shadowResult.status)
       ),
       dataQuality: shadowResult.dataQuality
     };

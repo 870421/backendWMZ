@@ -41,7 +41,8 @@ describe('shadow service', () => {
       segmentIds: [2, 9],
       lengthPerHeight: expect.closeTo(1, 10),
       eastPerHeight: expect.closeTo(-1, 10),
-      northPerHeight: expect.closeTo(0, 10)
+      northPerHeight: expect.closeTo(0, 10),
+      timeoutMs: 20000
     });
     expect(result).toMatchObject({
       status: 'calculated',
@@ -49,6 +50,34 @@ describe('shadow service', () => {
       missingSegmentIds: [9],
       dataQuality: quality
     });
+  });
+
+  it.each([
+    // 29/10/2026 17:55 in Zaragoza: a 20 m building would cast a 1.3 km shadow.
+    [0.9, 'sun_too_low'],
+    [9.99, 'sun_too_low'],
+    [10, 'calculated']
+  ])('with the sun at %p° the status is %s', async (elevationDegrees, status) => {
+    const repository = {
+      getUrbanDataQuality: jest.fn().mockResolvedValue(quality),
+      projectAndAssociateShadows: jest.fn().mockResolvedValue([])
+    };
+    const solarCalculator = () => ({ azimuthDegrees: 250, elevationDegrees, aboveHorizon: true });
+
+    const result = await calculateSegmentShadows(
+      { segmentIds: [4], date: '2026-10-29', time: '17:55', latitude: 41, longitude: -1 },
+      { repository, solarCalculator, config: { minSunElevationDeg: 10, queryTimeoutMs: 5000 } }
+    );
+
+    expect(result.status).toBe(status);
+    expect(repository.projectAndAssociateShadows).toHaveBeenCalledTimes(
+      status === 'calculated' ? 1 : 0
+    );
+    if (status === 'sun_too_low') {
+      expect(result).toMatchObject({ projection: null, segments: [], requestedSegmentIds: [4] });
+    } else {
+      expect(repository.projectAndAssociateShadows.mock.calls[0][0].timeoutMs).toBe(5000);
+    }
   });
 
   it('does not query geometries when the sun is below the horizon', async () => {

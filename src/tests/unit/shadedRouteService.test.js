@@ -111,6 +111,26 @@ describe('shaded route service', () => {
     expect(result).toMatchObject({ status: 'sun_below_horizon', shaded: null });
   });
 
+  it('reports a sun too low instead of a generic lack of exposure data', async () => {
+    exposureCalculator.mockResolvedValue({
+      status: 'sun_too_low',
+      reference: solarPosition,
+      segments: [
+        { segmentId: 1, status: 'unavailable' },
+        { segmentId: 2, status: 'unavailable' }
+      ]
+    });
+
+    const result = await calculateShadedRouteComparison(input, {
+      routesProvider,
+      routeSegmentRepository: { findSegmentsForRoutes },
+      exposureCalculator,
+      solarCalculator
+    });
+
+    expect(result).toMatchObject({ status: 'sun_too_low', shaded: null });
+  });
+
   it.each([
     [{ ...input, origin: null }, /Origin and destination/],
     [{ ...input, date: 'not-a-date' }, /Date, time and time zone/]
