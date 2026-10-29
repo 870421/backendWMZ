@@ -17,6 +17,10 @@ async function insertSegment(sourceId, x) {
   );
 }
 
+afterAll(async () => {
+  await sequelize.close();
+});
+
 describe('shadow projection and segment association (PostGIS)', () => {
   beforeAll(async () => {
     await sequelize.query(
@@ -58,10 +62,6 @@ describe('shadow projection and segment association (PostGIS)', () => {
        FROM street_segments s CROSS JOIN trees t
        WHERE ST_DWithin(s.geom::geography, t.geom::geography, 25)`
     );
-  });
-
-  afterAll(async () => {
-    await sequelize.close();
   });
 
   it('projects west, intersects full lines and preserves element and segment identifiers', async () => {
@@ -128,5 +128,45 @@ describe('shadow projection and segment association (PostGIS)', () => {
         sequelize.query('SELECT 1 AS ok', { transaction, type: sequelize.QueryTypes.SELECT })
       )
     ).resolves.toEqual([{ ok: 1 }]);
+  });
+});
+
+describe('long shadows on a route with distant segments (PostGIS)', () => {
+  beforeAll(async () => {
+    await sequelize.query(
+      `TRUNCATE buildings, trees, street_segments, association_runs, unassociated_elements,
+         import_rejections, import_runs RESTART IDENTITY CASCADE`
+    );
+    // Two segments 2 km apart: the route bounding box is huge, but each segment is searched alone.
+    await insertSegment('FAR_WEST', -1000);
+    await insertSegment('FAR_EAST', 1000);
+    // 40 m tall, 60 m east of FAR_WEST and not associated to it (no segment_buildings row), so
+    // only the extended search can find it. Sun from the east: its shadow points west.
+    await sequelize.query(
+      `INSERT INTO buildings (source, source_id, height_m, height_source, geom)
+       VALUES ('shadow-test', 'TALL_FAR', 40, 'measured', ${toWgs84(
+         `MULTIPOLYGON(((${X0 - 940} ${Y0 - 2}, ${X0 - 936} ${Y0 - 2}, ${X0 - 936} ${
+           Y0 + 2
+         }, ${X0 - 940} ${Y0 + 2}, ${X0 - 940} ${Y0 - 2})))`
+       )})`
+    );
+  });
+
+  it('finds a tall building far from the route centre with the extended search', async () => {
+    const segmentRows = await rows(`SELECT id, source_id FROM street_segments ORDER BY id`);
+    const ids = Object.fromEntries(segmentRows.map((row) => [row.source_id, row.id]));
+    const projected = await shadowRepository.projectAndAssociateShadows({
+      segmentIds: Object.values(ids),
+      lengthPerHeight: 2,
+      eastPerHeight: -2,
+      northPerHeight: 0
+    });
+    const bySource = Object.fromEntries(projected.map((row) => [row.segmentSourceId, row]));
+
+    expect(bySource.FAR_WEST.associations).toEqual([
+      expect.objectContaining({ elementType: 'building', sourceId: 'TALL_FAR' })
+    ]);
+    expect(bySource.FAR_WEST.shadedLengthM).toBeCloseTo(4, 1);
+    expect(bySource.FAR_EAST).toMatchObject({ shadedLengthM: 0, associations: [] });
   });
 });

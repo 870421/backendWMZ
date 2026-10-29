@@ -3,36 +3,10 @@ const { QueryTypes } = require('sequelize');
 const { associationConfig } = require('../config/associationConfig');
 const { sequelize } = require('../config/database');
 const { shadowConfig } = require('../config/shadowConfig');
-const { httpError } = require('../utils/httpError');
-
-// SQLSTATE of a statement cancelled by statement_timeout.
-const QUERY_CANCELED = '57014';
+const { withStatementTimeout } = require('./statementTimeout');
 
 function select(sql, replacements, transaction) {
   return sequelize.query(sql, { replacements, type: QueryTypes.SELECT, transaction });
-}
-
-/*
- * Runs callback(transaction) with a PostgreSQL statement_timeout that only applies to that
- * transaction (SET LOCAL), so a heavy request cannot keep the database busy indefinitely
- * (ADR-015). A timeout becomes a controlled 504.
- */
-async function withStatementTimeout(timeoutMs, callback) {
-  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new TypeError('timeoutMs must be a positive integer');
-  }
-  try {
-    return await sequelize.transaction(async (transaction) => {
-      // SET does not accept bind parameters; timeoutMs is a validated integer.
-      await sequelize.query(`SET LOCAL statement_timeout = ${timeoutMs}`, { transaction });
-      return callback(transaction);
-    });
-  } catch (error) {
-    if (error.original?.code === QUERY_CANCELED) {
-      throw httpError(504, 'Shadow calculation timed out. Please try again.');
-    }
-    throw error;
-  }
 }
 
 /*
@@ -50,25 +24,52 @@ async function projectAndAssociateShadows({
   return withStatementTimeout(timeoutMs, (transaction) =>
     select(
       `WITH selected AS (
-       SELECT id, source_id, ST_Transform(geom, 25830) AS geom_m
+       SELECT id, source_id, geom, ST_Transform(geom, 25830) AS geom_m
        FROM street_segments
        WHERE id IN (:segmentIds)
          AND ST_IsValid(geom) AND NOT ST_IsEmpty(geom)
-     ), route_extent AS (
-       SELECT ST_Collect(ST_Transform(geom_m, 4326)) AS route_geom
-       FROM selected
      ), search_limits AS (
        SELECT
          COALESCE((SELECT max(height_m) FROM buildings WHERE height_m > 0), 0)
            * :lengthPerHeight AS building_search_m,
          COALESCE((SELECT max(height_m * :lengthPerHeight + crown_diameter_m / 2)
            FROM trees WHERE height_m > 0 AND crown_diameter_m > 0), 0) AS tree_search_m
-     ), search_areas AS (
+     ), route_m AS (
+       SELECT ST_Collect(geom_m) AS geom_m FROM selected
+     ), search_boxes AS (
+       -- Search area: one box per segment instead of one for the whole route (a long diagonal
+       -- route has a huge bounding box: 4,493 buildings and 132,631 trees on a 3.7 km route).
+       -- Neighbouring boxes overlap a lot, so they are merged and cut into non-overlapping
+       -- pieces; otherwise each tree was found hundreds of times (9.2 million box hits). The
+       -- pieces only find candidates; each distinct candidate is then measured once, in metres
+       -- in EPSG:25830, against the route (ADR-016). The candidate lists are MATERIALIZED:
+       -- otherwise the planner measured all 38,963 buildings against the route first.
        SELECT
-         ST_Envelope(ST_Buffer(e.route_geom::geography, l.building_search_m)::geometry)
-           AS building_bbox,
-         ST_Envelope(ST_Buffer(e.route_geom::geography, l.tree_search_m)::geometry) AS tree_bbox
-       FROM route_extent e CROSS JOIN search_limits l
+         ST_Union(ST_Envelope(ST_Buffer(s.geom::geography, l.building_search_m)::geometry))
+           AS building_area,
+         ST_Union(ST_Envelope(ST_Buffer(s.geom::geography, l.tree_search_m)::geometry))
+           AS tree_area
+       FROM selected s CROSS JOIN search_limits l
+     ), building_pieces AS (
+       SELECT ST_Subdivide(building_area, 32) AS piece FROM search_boxes
+     ), tree_pieces AS (
+       SELECT ST_Subdivide(tree_area, 32) AS piece FROM search_boxes
+     ), building_box_hits AS MATERIALIZED (
+       SELECT DISTINCT ON (b.id) b.id, b.source_id, b.height_m, b.height_source,
+         b.height_suspicious, b.geom
+       FROM building_pieces p
+       JOIN buildings b ON b.geom && p.piece
+       WHERE :useExtendedBuildingSearch
+         AND b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
+       ORDER BY b.id
+     ), tree_box_hits AS MATERIALIZED (
+       SELECT DISTINCT ON (t.id) t.id, t.source_id, t.height_m, t.crown_diameter_m, t.geom
+       FROM tree_pieces p
+       JOIN trees t ON t.geom && p.piece
+       WHERE t.height_m > 0 AND t.crown_diameter_m > 0
+         AND t.height_m * :lengthPerHeight + t.crown_diameter_m / 2 > :treeAssociationRadiusM
+         AND ST_IsValid(t.geom) AND NOT ST_IsEmpty(t.geom)
+       ORDER BY t.id
      ), building_candidate_rows AS (
        SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
        FROM buildings b
@@ -77,16 +78,10 @@ async function projectAndAssociateShadows({
        WHERE b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
          AND sb.distance_m <= b.height_m * :lengthPerHeight
        UNION ALL
-       SELECT b.id, b.source_id, b.height_m, b.height_source, b.height_suspicious, b.geom
-       FROM buildings b
-       JOIN search_areas a ON b.geom && a.building_bbox
-       JOIN route_extent e ON ST_DWithin(
-         b.geom::geography,
-         e.route_geom::geography,
-         b.height_m * :lengthPerHeight
-       )
-       WHERE :useExtendedBuildingSearch
-         AND b.height_m > 0 AND ST_IsValid(b.geom) AND NOT ST_IsEmpty(b.geom)
+       SELECT h.id, h.source_id, h.height_m, h.height_source, h.height_suspicious, h.geom
+       FROM building_box_hits h
+       CROSS JOIN route_m r
+       WHERE ST_DWithin(ST_Transform(h.geom, 25830), r.geom_m, h.height_m * :lengthPerHeight)
      ), building_candidates AS (
        SELECT DISTINCT id, source_id, height_m, height_source, height_suspicious,
          ST_Transform(geom, 25830) AS base_geom
@@ -100,17 +95,14 @@ async function projectAndAssociateShadows({
          AND ST_IsValid(t.geom) AND NOT ST_IsEmpty(t.geom)
          AND st.distance_m <= t.height_m * :lengthPerHeight + t.crown_diameter_m / 2
        UNION ALL
-       SELECT t.id, t.source_id, t.height_m, t.crown_diameter_m, t.geom
-       FROM trees t
-       JOIN search_areas a ON t.geom && a.tree_bbox
-       JOIN route_extent e ON ST_DWithin(
-         t.geom::geography,
-         e.route_geom::geography,
-         t.height_m * :lengthPerHeight + t.crown_diameter_m / 2
+       SELECT h.id, h.source_id, h.height_m, h.crown_diameter_m, h.geom
+       FROM tree_box_hits h
+       CROSS JOIN route_m r
+       WHERE ST_DWithin(
+         ST_Transform(h.geom, 25830),
+         r.geom_m,
+         h.height_m * :lengthPerHeight + h.crown_diameter_m / 2
        )
-       WHERE t.height_m > 0 AND t.crown_diameter_m > 0
-         AND ST_IsValid(t.geom) AND NOT ST_IsEmpty(t.geom)
-         AND t.height_m * :lengthPerHeight + t.crown_diameter_m / 2 > :treeAssociationRadiusM
      ), tree_candidates AS (
        SELECT DISTINCT id, source_id, height_m, crown_diameter_m,
          ST_Buffer(ST_Transform(geom, 25830), crown_diameter_m / 2, 'quad_segs=8') AS base_geom

@@ -187,6 +187,11 @@ búsqueda llega a abarcar casi toda la ciudad (a 0,2° una ruta de 1 km procesab
 edificios y árboles). Además, la consulta se ejecuta con un `statement_timeout` de
 `SHADOW_QUERY_TIMEOUT_MS` (20 s por defecto); si se supera, la API responde `504`. Ver ADR-015.
 
+En rutas largas, los edificios y árboles candidatos se buscan con un recuadro por tramo (unidos y
+partidos con `ST_Subdivide`), no con el de toda la ruta, y cada candidato se mide una vez contra la
+ruta en EPSG:25830. La asociación ruta-tramo también busca por cada trozo recto de la ruta y tiene
+el mismo límite de tiempo. Una ruta de 3,7 km pasó de ~30 s a ~3 s en local (ADR-016).
+
 Los edificios usan `height_m` y conservan `height_source` y `height_suspicious` en cada asociación.
 Un árbol solo participa si tiene `height_m` y `crown_diameter_m` positivos; nunca se rellenan esos
 campos. `dataQuality` devuelve los totales utilizables y los omitidos por altura, copa o geometría.
