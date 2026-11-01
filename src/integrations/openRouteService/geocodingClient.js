@@ -1,4 +1,5 @@
 const { env } = require('../../config/env');
+const { importConfig } = require('../../config/importConfig');
 
 function providerError(status, message) {
   return Object.assign(new Error(message), { status });
@@ -30,6 +31,12 @@ async function autocompletePlaces({ limit = 5, text }) {
   url.searchParams.set('focus.point.lat', '41.6488');
   url.searchParams.set('focus.point.lon', '-0.8891');
   url.searchParams.set('boundary.country', 'ESP');
+  // Only suggest places the app can route to: the municipality of Zaragoza.
+  const { minLat, minLng, maxLat, maxLng } = importConfig.zaragozaBbox;
+  url.searchParams.set('boundary.rect.min_lat', String(minLat));
+  url.searchParams.set('boundary.rect.min_lon', String(minLng));
+  url.searchParams.set('boundary.rect.max_lat', String(maxLat));
+  url.searchParams.set('boundary.rect.max_lon', String(maxLng));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {

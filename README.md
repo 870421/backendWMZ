@@ -452,7 +452,7 @@ Devuelve `{ results: [{ id, label, lat, lng, source: "search" }] }`.
 Un texto de menos de 3 caracteres devuelve una lista vacía; la longitud máxima es 200.
 `limit` vale 5 por defecto y debe ser un entero de 1 a 10. Las consultas no válidas devuelven 400.
 El adaptador valida, normaliza y elimina duplicados de los resultados del proveedor.
-La búsqueda se centra en Zaragoza y filtra por España. No se limita al término municipal.
+La búsqueda se centra en Zaragoza y solo devuelve lugares dentro de su término municipal.
 
 Los errores usan `{ error: { message } }`: 401 sin sesión, 503 si falta configuración, 429 si se agota la cuota
 del proveedor, 504 si el proveedor supera el timeout de 8 segundos y 502 si falla el proveedor o
@@ -524,7 +524,7 @@ Todos los errores usan `{ "error": { "message": "..." } }`:
 
 | Código | Significado |
 | --- | --- |
-| `400` | Faltan coordenadas, no son numéricas o están fuera de rango. |
+| `400` | Faltan coordenadas, no son numéricas, están fuera de rango o algún punto queda fuera del término municipal de Zaragoza. |
 | `401` | No hay sesión o el token no es válido. |
 | `429` | Se ha agotado la cuota de OpenRouteService. |
 | `502` | El proveedor no está disponible o ha devuelto una respuesta inválida. |
@@ -584,6 +584,9 @@ En caso contrario vale `null`:
   }
 }
 ```
+
+Origen y destino deben estar dentro del término municipal de Zaragoza (`importConfig.zaragozaBbox`);
+si no, responde `400` sin llamar a OpenRouteService.
 
 Estados posibles: `selected`, `no_better_alternative`, `insufficient_exposure_data`,
 `sun_below_horizon` y `sun_too_low` (Sol por debajo de `SHADOW_MIN_SUN_ELEVATION_DEG`; no se

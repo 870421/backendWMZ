@@ -1,3 +1,4 @@
+const { importConfig } = require('../../config/importConfig');
 const { calculateRouteExposure } = require('../../domain/routes/routeExposure');
 const {
   MAX_DURATION_FACTOR,
@@ -32,7 +33,7 @@ async function calculateShadedRouteComparison(
     solarCalculator = calculateSolarPosition
   } = {}
 ) {
-  const timeZone = validateShadedRouteRequest(input);
+  const timeZone = validateShadedRouteRequest(input, importConfig.zaragozaBbox);
   const solarInput = {
     date: input.date,
     time: input.time,

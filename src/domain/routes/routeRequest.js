@@ -1,3 +1,4 @@
+const { isInsideBbox } = require('../geo/geometryValidation');
 const { ZARAGOZA_TIME_ZONE, parseLocalDateTime } = require('../solar/solarPosition');
 
 function isValidPoint(point) {
@@ -16,16 +17,23 @@ function invalidRequest(message) {
   return Object.assign(new Error(message), { status: 400 });
 }
 
-function validateRoutePoints({ origin, destination } = {}) {
+// There are no urban data outside the service area, so a route there is rejected before spending
+// provider quota.
+function validateRoutePoints(points, serviceArea) {
+  const { origin, destination } = points ?? {};
   if (!isValidPoint(origin) || !isValidPoint(destination)) {
     throw invalidRequest(
       'Origin and destination must contain valid latitude and longitude coordinates.'
     );
   }
+  const inside = ({ lat, lng }) => isInsideBbox([lng, lat], serviceArea);
+  if (!inside(origin) || !inside(destination)) {
+    throw invalidRequest('Origin and destination must be inside the municipality of Zaragoza.');
+  }
 }
 
-function validateShadedRouteRequest(input = {}) {
-  validateRoutePoints(input);
+function validateShadedRouteRequest(input, serviceArea) {
+  validateRoutePoints(input, serviceArea);
   const timeZone = input.timeZone || ZARAGOZA_TIME_ZONE;
   try {
     parseLocalDateTime(input.date, input.time, timeZone);
