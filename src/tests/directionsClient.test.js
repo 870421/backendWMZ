@@ -56,7 +56,8 @@ describe('OpenRouteService directions adapter', () => {
         ]
       },
       distance: 1250.4,
-      duration: 930.2
+      duration: 930.2,
+      steps: []
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -72,7 +73,8 @@ describe('OpenRouteService directions adapter', () => {
           [-0.878, 41.656]
         ],
         preference: 'fastest',
-        instructions: false
+        instructions: true,
+        language: 'es'
       })
     );
     expect(options.signal).toBeInstanceOf(AbortSignal);
@@ -116,6 +118,69 @@ describe('OpenRouteService directions adapter', () => {
       weight_factor: 1.25,
       share_factor: 0.8
     });
+  });
+
+  it('normalizes the steps and drops the ones it cannot use', async () => {
+    const step = (overrides) => ({
+      instruction: 'Gire a la derecha a Calle de Alfonso I',
+      name: 'Calle de Alfonso I',
+      distance: 135.2,
+      duration: 97.4,
+      type: 1,
+      way_points: [22, 27],
+      ...overrides
+    });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-0.8891, 41.6488],
+                [-0.878, 41.656]
+              ]
+            },
+            properties: {
+              summary: { distance: 1, duration: 1 },
+              segments: [
+                {
+                  steps: [
+                    step(),
+                    step({ name: '-', instruction: 'Gire a la izquierda' }),
+                    step({ instruction: '' }),
+                    step({ way_points: [1] }),
+                    step({ distance: -1 })
+                  ]
+                },
+                { steps: 'bad' }
+              ]
+            }
+          }
+        ]
+      })
+    });
+
+    const { steps } = await getFastestWalkingRoute({ origin, destination });
+
+    expect(steps).toEqual([
+      {
+        instruction: 'Gire a la derecha a Calle de Alfonso I',
+        name: 'Calle de Alfonso I',
+        distance: 135.2,
+        duration: 97.4,
+        wayPoints: [22, 27]
+      },
+      {
+        instruction: 'Gire a la izquierda',
+        name: null,
+        distance: 135.2,
+        duration: 97.4,
+        wayPoints: [22, 27]
+      }
+    ]);
   });
 
   it('rejects invalid coordinates before calling the provider', async () => {

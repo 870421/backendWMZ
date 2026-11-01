@@ -520,10 +520,24 @@ duración estimada en segundos:
       ]
     },
     "distance": 1250.4,
-    "duration": 930.2
+    "duration": 930.2,
+    "steps": [
+      {
+        "instruction": "Gire a la derecha a Calle de Alfonso I",
+        "name": "Calle de Alfonso I",
+        "distance": 135.2,
+        "duration": 97.4,
+        "wayPoints": [1, 2]
+      }
+    ]
   }
 }
 ```
+
+`steps` es el paso a paso en español. `wayPoints` son los índices de inicio y fin del tramo en
+`geometry.coordinates`. `name` es `null` en vías sin nombre en OpenStreetMap. Si el proveedor no da
+pasos válidos, `steps` es una lista vacía y la ruta sigue siendo válida. Las rutas de
+`POST /api/routes/shaded` incluyen el mismo campo.
 
 ### Errores
 
