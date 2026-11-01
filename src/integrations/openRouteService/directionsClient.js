@@ -37,6 +37,42 @@ function normalizeGeometry(geometry) {
   return { type: 'LineString', coordinates };
 }
 
+function normalizeStep(step) {
+  const wayPoints = step?.way_points;
+  if (
+    typeof step?.instruction !== 'string' ||
+    !step.instruction.trim() ||
+    !Number.isFinite(step.distance) ||
+    step.distance < 0 ||
+    !Number.isFinite(step.duration) ||
+    step.duration < 0 ||
+    !Array.isArray(wayPoints) ||
+    wayPoints.length !== 2 ||
+    !wayPoints.every((index) => Number.isInteger(index) && index >= 0)
+  )
+    return null;
+
+  const name = typeof step.name === 'string' ? step.name.trim() : '';
+  return {
+    instruction: step.instruction.trim(),
+    // The provider uses "-" for ways without a name (passages and pedestrian areas in OSM).
+    name: name && name !== '-' ? name : null,
+    distance: step.distance,
+    duration: step.duration,
+    wayPoints
+  };
+}
+
+// Steps complement the route: without them the route is still valid.
+function normalizeSteps(route) {
+  const segments = route?.properties?.segments;
+  if (!Array.isArray(segments)) return [];
+  return segments
+    .flatMap((segment) => (Array.isArray(segment?.steps) ? segment.steps : []))
+    .map(normalizeStep)
+    .filter(Boolean);
+}
+
 function normalizeRouteFeature(route) {
   const geometry = normalizeGeometry(route?.geometry);
   const distance = route?.properties?.summary?.distance;
@@ -51,7 +87,7 @@ function normalizeRouteFeature(route) {
   )
     return null;
 
-  return { geometry, distance, duration };
+  return { geometry, distance, duration, steps: normalizeSteps(route) };
 }
 
 function normalizeRoutes(data) {
@@ -88,7 +124,8 @@ async function requestWalkingRoutes({ origin, destination, alternativeRoutes }) 
       body: JSON.stringify({
         coordinates,
         preference: 'fastest',
-        instructions: false,
+        instructions: true,
+        language: 'es',
         ...(alternativeRoutes ? { alternative_routes: alternativeRoutes } : {})
       }),
       signal: controller.signal
