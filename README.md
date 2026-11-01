@@ -459,6 +459,13 @@ del proveedor, 504 si el proveedor supera el timeout de 8 segundos y 502 si fall
 la red, o la respuesta no es válida. Nunca se reenvían cuerpos de respuesta del proveedor ni
 credenciales. Los tests automáticos simulan las peticiones externas.
 
+### `GET /api/geocoding/reverse?lat=41.6497&lng=-0.8834`
+
+Nombre de lo que hay en un punto del mapa. Necesita sesión. Devuelve
+`{ place: { label: "Paseo de la Independencia 31" } }`, o `{ place: null }` si no hay nada a menos de
+150 m. Un lugar (venue) a 15 m o menos gana a la dirección de su edificio. Si el punto
+falta o queda fuera del término municipal devuelve 400; los demás errores son los del autocompletado.
+
 Desde la raíz del workspace, `docker compose up` carga `backend/.env` mediante `env_file`.
 Crea ese fichero (ignorado por Git) a partir de `.env.example` antes de arrancar Compose; no
 sobrescribas una clave existente. El frontend llega a la API a través del proxy de desarrollo de

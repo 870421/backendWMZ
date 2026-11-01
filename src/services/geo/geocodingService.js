@@ -1,4 +1,9 @@
-const { autocompletePlaces } = require('../../integrations/openRouteService/geocodingClient');
+const { importConfig } = require('../../config/importConfig');
+const { isInsideBbox } = require('../../domain/geo/geometryValidation');
+const {
+  autocompletePlaces,
+  reversePlace
+} = require('../../integrations/openRouteService/geocodingClient');
 
 async function searchPlaces({ text = '', limit = '5' }) {
   if (
@@ -19,4 +24,20 @@ async function searchPlaces({ text = '', limit = '5' }) {
   return autocompletePlaces({ text: text.trim(), limit: Number(limit) });
 }
 
-module.exports = { searchPlaces };
+async function namePlaceAt({ lat, lng }) {
+  const point = { lat: Number(lat), lng: Number(lng) };
+  if (
+    typeof lat !== 'string' ||
+    typeof lng !== 'string' ||
+    !lat.trim() ||
+    !lng.trim() ||
+    !isInsideBbox([point.lng, point.lat], importConfig.zaragozaBbox)
+  ) {
+    const error = new Error('lat and lng must be coordinates inside the municipality of Zaragoza.');
+    error.status = 400;
+    throw error;
+  }
+  return reversePlace(point);
+}
+
+module.exports = { namePlaceAt, searchPlaces };

@@ -1,4 +1,4 @@
-const { searchPlaces } = require('../../services/geo/geocodingService');
+const { namePlaceAt, searchPlaces } = require('../../services/geo/geocodingService');
 
 async function getAutocomplete(req, res, next) {
   try {
@@ -10,4 +10,14 @@ async function getAutocomplete(req, res, next) {
   }
 }
 
-module.exports = { getAutocomplete };
+async function getReverse(req, res, next) {
+  try {
+    const place = await namePlaceAt(req.query);
+
+    res.json({ place });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { getAutocomplete, getReverse };
