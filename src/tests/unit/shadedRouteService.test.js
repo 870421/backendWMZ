@@ -133,6 +133,7 @@ describe('shaded route service', () => {
 
   it.each([
     [{ ...input, origin: null }, /Origin and destination/],
+    [{ ...input, destination: { lat: 40.4168, lng: -3.7038 } }, /municipality of Zaragoza/],
     [{ ...input, date: 'not-a-date' }, /Date, time and time zone/]
   ])('validates the request before calling ORS', async (invalidInput, message) => {
     await expect(

@@ -7,6 +7,7 @@ jest.mock('../api/middleware/requireAuth', () => ({
 
 const { createApp } = require('../app');
 const { env } = require('../config/env');
+const { importConfig } = require('../config/importConfig');
 const { autocompletePlaces } = require('../integrations/openRouteService/geocodingClient');
 
 describe('geocoding validation and provider failures', () => {
@@ -89,6 +90,18 @@ describe('geocoding validation and provider failures', () => {
     expect(url.searchParams.get('focus.point.lat')).toBe('41.6488');
     expect(url.searchParams.get('focus.point.lon')).toBe('-0.8891');
     expect(url.searchParams.get('boundary.country')).toBe('ESP');
+    expect(url.searchParams.get('boundary.rect.min_lat')).toBe(
+      String(importConfig.zaragozaBbox.minLat)
+    );
+    expect(url.searchParams.get('boundary.rect.min_lon')).toBe(
+      String(importConfig.zaragozaBbox.minLng)
+    );
+    expect(url.searchParams.get('boundary.rect.max_lat')).toBe(
+      String(importConfig.zaragozaBbox.maxLat)
+    );
+    expect(url.searchParams.get('boundary.rect.max_lon')).toBe(
+      String(importConfig.zaragozaBbox.maxLng)
+    );
     expect(url.searchParams.has('api_key')).toBe(false);
     expect(options.headers.Authorization).toBe('test-key');
   });

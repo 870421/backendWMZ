@@ -70,6 +70,22 @@ describe('POST /api/routes/fastest', () => {
   });
 
   it.each([
+    ['origin', { origin: { lat: 40.4168, lng: -3.7038 }, destination }],
+    ['destination', { origin, destination: { lat: 41.82, lng: -0.88 } }]
+  ])(
+    'returns 400 without calling the provider when the %s is outside Zaragoza',
+    async (_p, body) => {
+      const response = await request(createApp()).post('/api/routes/fastest').send(body);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: { message: 'Origin and destination must be inside the municipality of Zaragoza.' }
+      });
+      expect(getFastestWalkingRoute).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
     [429, 'Route provider quota has been exceeded. Please try again shortly.'],
     [502, 'Route provider is unavailable.'],
     [504, 'Route calculation timed out. Please try again.']
