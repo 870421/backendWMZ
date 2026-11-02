@@ -423,6 +423,8 @@ para crearlo están en [deploy/README.md](deploy/README.md).
   `ASSOC_BUILDING_MIN_RADIUS_M` (30), `ASSOC_BUILDING_HEIGHT_FACTOR` (1.5), `ASSOC_MIN_PCT` (95),
   `ASSOC_BATCH_SIZE` (20000): asociación a tramos peatonales (`src/config/associationConfig.js`;
   ver ADR-009 en el `docs/DECISIONS.md` del workspace).
+- Open-Meteo no requiere clave ni variable de entorno en esta integración. `GET /api/weather/current`
+  consulta Zaragoza y usa caché en memoria durante cinco minutos.
 - `SHADOW_MIN_SUN_ELEVATION_DEG` (10), `SHADOW_QUERY_TIMEOUT_MS` (20000): elevación solar mínima
   para proyectar sombras y tiempo máximo de la consulta de sombras (`src/config/shadowConfig.js`;
   ver ADR-015 en el `docs/DECISIONS.md` del workspace). Son opcionales.
@@ -446,6 +448,24 @@ para crearlo están en [deploy/README.md](deploy/README.md).
 - `GOOGLE_CALLBACK_URL`: dirección a la que Google devuelve al usuario. Por defecto
   `http://localhost:5173/api/auth/google/callback` (pasa por el proxy de Vite). Debe coincidir
   exactamente con un "URI de redirección autorizado" del cliente OAuth.
+
+## Meteorología actual (PBI-7)
+
+`GET /api/weather/current` requiere sesión. Consulta Open-Meteo Forecast para el centro de Zaragoza
+(`41.6488, -0.8891`), solicita `temperature_2m`, `wind_speed_10m` y `wind_direction_10m`, y fija
+`timezone=Europe/Madrid`. Devuelve `{ weather }` con valores y unidades del proveedor, hora local
+del dato, zona horaria y fecha de consulta. Una caché en memoria de cinco minutos evita llamadas
+redundantes; peticiones simultáneas comparten la misma llamada en curso. Los errores del proveedor
+se traducen a errores controlados. No se necesita clave ni variable de entorno nueva.
+
+```bash
+curl http://localhost:3000/api/weather/current \\
+  --header "Authorization: Bearer <token>"
+```
+
+La aplicación debe conservar la atribución y licencia de Open-Meteo cuando presente estos datos.
+Esta PBI añade el servicio backend; no añade un panel meteorológico en el frontend ni incorpora
+todavía el viento al coste de las rutas.
 
 ## Autenticación (PBI-4)
 
