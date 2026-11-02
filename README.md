@@ -152,7 +152,144 @@ Como acceso general a PBI-3.2, `src/services/geo/associationService.js` ofrece
 `getNearestSegmentForElement(type, id)`, con `distance_m`, `is_nearest` y los atributos urbanos
 (`height_m`, `height_source`, `crown_diameter_m`). PBI-5.2 no limita las sombras a estos enlaces:
 su radio fijo puede quedarse corto con el Sol bajo, por lo que hace una preselección dinámica
-según la longitud solar efectiva. Todavía no hay endpoints de datos urbanos (PBI-3.3).
+según la longitud solar efectiva. Los endpoints de consulta están en la sección de la PBI-3.3.
+
+## Consulta de elementos urbanos por tramo (PBI-3.3)
+
+Cuatro endpoints de lectura que exponen las asociaciones de la PBI-3.2. Todos exigen sesión
+(`Authorization: Bearer <token>`; sin ella, `401`) y devuelven los errores con el formato común
+`{ "error": { "message", "fields"? } }`. No calculan nada al vuelo: "asociados o cercanos" es lo que
+hay en `segment_trees` y `segment_buildings` (tramo más cercano + radio). Las decisiones: ver
+DECISIONS.md (PBI-3.3 y ADR-011) en la carpeta docs del Drive del equipo.
+
+### `GET /api/segments/:id/urban-elements`
+
+Árboles y edificios asociados a un tramo, ordenados por `distanceM`.
+
+| Parámetro | Dónde | Descripción |
+| --- | --- | --- |
+| `id` | ruta | Id del tramo: entero positivo. |
+| `types` | query, opcional | `trees`, `buildings` o `trees,buildings` (por defecto, los dos). El tipo no pedido no aparece. |
+
+```bash
+curl --header "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/segments/36202/urban-elements"
+```
+
+Respuesta `200 OK` (recortada; geometrías en GeoJSON, EPSG:4326):
+
+```json
+{
+  "segment": {
+    "id": 36202, "sourceId": "399096155:2", "osmWayId": 399096155,
+    "name": "Paseo de la Independencia", "highway": "tertiary", "lengthM": 83.226,
+    "geometry": { "type": "LineString", "coordinates": ["…"] }
+  },
+  "trees": [
+    {
+      "id": 31552, "sourceId": "341363", "species": "Tilia x hybrida", "heightM": 7.5,
+      "crownDiameterM": null, "distanceM": 2.612, "isNearest": true,
+      "geometry": { "type": "Point", "coordinates": [-0.883603, 41.649371] }
+    }
+  ],
+  "buildings": [
+    {
+      "id": 29594, "sourceId": "ES.SDGC.BU.6432202XM7163A01", "heightM": 37.4,
+      "heightSource": "measured", "heightSuspicious": false, "floors": 10,
+      "distanceM": 15.247, "isNearest": false, "associationRadiusM": 56.1,
+      "geometry": { "type": "MultiPolygon", "coordinates": ["…"] }
+    }
+  ],
+  "summary": {
+    "trees": 61, "nearestTrees": 10, "buildings": 15, "nearestBuildings": 0,
+    "associationStale": false
+  }
+}
+```
+
+- `distanceM`: metros desde el elemento al tramo (los edificios, desde su polígono). `isNearest`:
+  este es el tramo más cercano del elemento; si es `false`, se asoció por radio.
+- `associationRadiusM`: radio con el que se asoció el edificio, `max(30, 1,5 × heightM)`.
+- `crownDiameterM`, `heightM` y `species` son `null` cuando la fuente no los tiene; no se estiman.
+- `summary.trees` y `summary.buildings` cuentan todos los elementos devueltos; `nearestTrees` y
+  `nearestBuildings`, solo los que tienen `isNearest`. Solo aparecen los tipos pedidos.
+- `associationStale`: `true` si la última asociación de algún tipo pedido está desactualizada tras
+  un import; hay que volver a ejecutar `npm run associate`.
+
+| Código | Significado |
+| --- | --- |
+| `400` | `id` no es un entero positivo, o `types` tiene valores distintos de `trees` y `buildings` (con `fields`). |
+| `401` | Sin sesión. |
+| `404` | `No existe el tramo indicado.` |
+
+### `GET /api/segments/nearest?lat=&lng=`
+
+Tramo más cercano a un punto: los mismos campos que `segment` y `distanceM` en metros. Si el punto
+está a más de `ASSOC_MAX_NEAREST_M` (150 m) del tramo más cercano, no hay resultado.
+
+```bash
+curl --header "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/segments/nearest?lat=41.6488&lng=-0.8891"
+```
+
+```json
+{
+  "id": 52904, "sourceId": "710633478:0", "osmWayId": 710633478, "name": "Calle Hernán Cortés",
+  "highway": "secondary", "lengthM": 21.366, "geometry": { "type": "LineString", "coordinates": ["…"] },
+  "distanceM": 0.241
+}
+```
+
+| Código | Significado |
+| --- | --- |
+| `400` | `lat` o `lng` ausentes, no numéricos o fuera de rango, o el punto está fuera de la caja de Zaragoza (con `fields`). |
+| `401` | Sin sesión. |
+| `404` | `No hay ningún tramo a menos de 150 m del punto indicado.` |
+
+### `GET /api/segments/by-source/:sourceId`
+
+El tramo con ese `source_id` de OpenStreetMap (`<vía>:<secuencia>`, p. ej. `399096155:2`), que es
+estable entre bases de datos, a diferencia del `id`. Responde con el objeto `segment` de arriba,
+sin `distanceM`.
+
+| Código | Significado |
+| --- | --- |
+| `400` | `sourceId` vacío o de más de 100 caracteres. |
+| `401` | Sin sesión. |
+| `404` | `No existe el tramo indicado.` |
+
+### `GET /api/data/status`
+
+Última importación de cada dataset y última asociación de cada tipo. No incluye URLs de las
+fuentes ni parámetros internos.
+
+```bash
+curl --header "Authorization: Bearer $TOKEN" http://localhost:3000/api/data/status
+```
+
+```json
+{
+  "imports": [
+    {
+      "dataset": "trees", "status": "success", "startedAt": "2026-10-06T15:48:14.526Z",
+      "finishedAt": "2026-10-06T16:04:59.691Z", "sourceCount": 172543,
+      "importedCount": 172543, "rejectedCount": 0
+    }
+  ],
+  "associations": [
+    {
+      "type": "building", "status": "success", "startedAt": "2026-10-19T15:44:09.239Z",
+      "finishedAt": "2026-10-19T15:45:50.957Z", "total": 38963, "nearestOk": 38690,
+      "isolated": 273, "pctAssociated": 99.299, "stale": false
+    }
+  ]
+}
+```
+
+`imports` tiene una entrada por dataset (`buildings`, `streets`, `trees`) y `associations` una por
+tipo (`building`, `tree`); un dataset o tipo sin ejecuciones no aparece. `stale: true` (con
+`status: "stale"`) indica que un import posterior ha podido cambiar los datos. Códigos: `200` y
+`401`.
 
 ## Posición solar y sombras sobre tramos (PBI-5.1 y PBI-5.2)
 
@@ -322,7 +459,7 @@ objeto `user` de las respuestas es siempre `{ id, name, email }` y nunca incluye
 
 ### Endpoints protegidos
 
-`/api/routes/*` y `/api/geocoding/*` exigen un token válido. Sin cabecera, o con un token
+`/api/routes/*`, `/api/geocoding/*`, `/api/segments/*` y `/api/data/*` exigen un token válido. Sin cabecera, o con un token
 caducado o manipulado, responden:
 
 ```json
@@ -644,6 +781,37 @@ pero no añade migraciones ni dependencias.
       incompletos y no producen sombras inventadas.
 - [ ] `npm run ci` termina correctamente. No hay migraciones, variables de entorno ni endpoints
       nuevos para estas PBIs.
+
+### PBI-3.3 - Consulta de elementos urbanos por tramo
+
+Valores reales del 2026-11-02, sobre los datos de las PBI-3.1 y 3.2. En PowerShell, `curl` es un
+alias de `Invoke-WebRequest`: usa `curl.exe` o `Invoke-RestMethod`.
+
+- [ ] Con el servidor arrancado (`npm start`; `JWT_SECRET` definido en `.env`) y un usuario
+      (`POST /api/auth/register`, solo la primera vez), obtén el token:
+      `$token = (Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/login -ContentType "application/json" -Body '{"email":"ana@correo.es","password":"segura123"}').token`
+- [ ] Sin cabecera `Authorization`, las cuatro consultas devuelven `401`:
+      `curl.exe -i http://localhost:3000/api/data/status`
+- [ ] `curl.exe -H "Authorization: Bearer $token" http://localhost:3000/api/segments/by-source/399096155:2`
+      → "Paseo de la Independencia", `tertiary`, 83,2 m; anota su `id` (36202 en la BD de desarrollo).
+- [ ] `curl.exe -H "Authorization: Bearer $token" http://localhost:3000/api/segments/36202/urban-elements`
+      → `summary`: `trees` 61, `nearestTrees` 10, `buildings` 15, `associationStale` false.
+- [ ] `curl.exe -H "Authorization: Bearer $token" "http://localhost:3000/api/segments/36202/urban-elements?types=buildings"`
+      → solo `segment`, `buildings` y `summary`, sin `trees`.
+- [ ] `curl.exe -H "Authorization: Bearer $token" "http://localhost:3000/api/segments/nearest?lat=41.6488&lng=-0.8891"`
+      → Calle Hernán Cortés (`710633478:0`) a unos 0,24 m.
+- [ ] `curl.exe -H "Authorization: Bearer $token" "http://localhost:3000/api/segments/nearest?lat=41.80&lng=-0.70"`
+      → `404` ("No hay ningún tramo a menos de 150 m…"); con `lat=40&lng=-3` → `400`.
+- [ ] `curl.exe -H "Authorization: Bearer $token" http://localhost:3000/api/segments/0/urban-elements`
+      → `400` con `fields.id`; con `/api/segments/999999999/urban-elements` → `404`.
+- [ ] `curl.exe -H "Authorization: Bearer $token" http://localhost:3000/api/data/status`
+      → `imports` de `buildings`, `streets` y `trees` en `success`; `associations` de `building`
+      (99,299 %, 273 aislados) y `tree` (100 %), ambas con `stale: false`.
+- [ ] Tras `npm run import:trees`, la misma consulta muestra el tipo `tree` con `stale: true` y
+      `urban-elements?types=trees` devuelve `associationStale: true`; `npm run associate` lo deja
+      otra vez en `false`.
+- [ ] `npm run test:integration -- src/tests/integration/segmentQueries.test.js` pasa con la BD de
+      test levantada.
 
 ### PBI-3.2 - Asociación de edificios y arbolado a tramos peatonales
 
