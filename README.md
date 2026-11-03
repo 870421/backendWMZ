@@ -465,7 +465,61 @@ curl http://localhost:3000/api/weather/current \\
 
 La aplicación debe conservar la atribución y licencia de Open-Meteo cuando presente estos datos.
 Esta PBI añade el servicio backend; no añade un panel meteorológico en el frontend ni incorpora
-todavía el viento al coste de las rutas.
+todavía el viento al coste de las rutas (la PBI-8.1 lo usa para la exposición por tramo).
+
+## Exposición al viento por tramo (PBI-8.1)
+
+`src/domain/wind/windExposure.js` puntúa de 0 a 100 cuánto expone un tramo al viento (ADR-023):
+
+- **Orientación:** `segmentRepository.getSegmentPieces` divide el tramo en sus segmentos rectos
+  con `ST_DumpSegments` en EPSG:25830 y devuelve el rumbo (`ST_Azimuth`) y la longitud de cada
+  uno. Vale para calles en cualquier dirección, también en diagonal o curvas.
+- **Alineación (0-1):** media ponderada por longitud de `|cos(viento − rumbo)|`. La calle es un
+  eje: el viento que entra por un extremo o por el otro puntúa igual; a favor y en contra se
+  distinguen en la PBI-8.2.
+- **Intensidad (0-1):** 0 por debajo de 10 km/h, 1 desde 50 km/h y lineal entre medias.
+- **Exposición:** `100 × alineación × intensidad`.
+
+### `GET /api/segments/:id/wind-exposure`
+
+Requiere sesión. Sin parámetros usa el viento actual de Open-Meteo (`GET /api/weather/current`,
+caché de cinco minutos). Con `windSpeed` (km/h, 0-200) y `windDirection` (grados desde el norte de
+donde viene el viento, 0-360), siempre los dos juntos, calcula con ese viento sin llamar al
+proveedor.
+
+Ejemplo real del 2026-11-03 con el Paseo de la Independencia (`399096155:2`) y un cierzo de 30 km/h
+desde 300°. El `id` depende de la base de datos (36044 en esta importación); se obtiene con
+`GET /api/segments/by-source/399096155:2`.
+
+```bash
+curl --header "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/segments/36044/wind-exposure?windSpeed=30&windDirection=300"
+```
+
+```json
+{
+  "segmentId": 36044, "segmentSourceId": "399096155:2", "name": "Paseo de la Independencia",
+  "lengthM": 83.23,
+  "wind": { "speedKmh": 30, "directionDeg": 300, "source": "request", "time": null },
+  "status": "available", "reason": null,
+  "orientationDeg": 36.17, "alignment": 0.107, "intensity": 0.5, "windExposure": 5.37
+}
+```
+
+(Decimales recortados.) El Paseo va de noreste a suroeste (36°), casi perpendicular a ese cierzo,
+así que la exposición es baja. Con el viento de
+Open-Meteo, `wind.source` es `open-meteo` y `wind.time` la hora local del dato. `orientationDeg` es
+el eje dominante del tramo (0-180°); es `null` si ningún eje domina. Si el tramo no tiene geometría
+utilizable, `status` es `unavailable`, `reason` `invalid_segment_geometry` y los valores `null`.
+
+| Código | Significado |
+| --- | --- |
+| `400` | `id` no válido, o `windSpeed`/`windDirection` no numéricos, fuera de rango o solo uno de los dos (con `fields`). |
+| `401` | Sin sesión. |
+| `404` | `No existe el tramo indicado.` |
+| `502`/`504` | Error o timeout de Open-Meteo cuando no se indica el viento. |
+
+No hay migraciones, dependencias ni variables de entorno nuevas.
 
 ## Autenticación (PBI-4)
 
@@ -774,6 +828,27 @@ códigos controlados que `/api/routes/fastest`; si el cálculo de sombras supera
 pero no añade migraciones ni dependencias.
 
 ## Checklist de verificación manual
+
+### PBI-8.1 - Exposición al viento por tramo
+
+Valores reales del 2026-11-03 (solo hacen falta las calles: `npm run import:streets`). Con el
+servidor arrancado y `$token` obtenido como en la PBI-3.3. Usa `curl.exe` en PowerShell. `<id>` es
+el del Paseo de la Independencia: `GET /api/segments/by-source/399096155:2` (36044 en esa BD).
+
+- [ ] Sin cabecera `Authorization`, `curl.exe -i http://localhost:3000/api/segments/<id>/wind-exposure`
+      devuelve `401`.
+- [ ] `curl.exe -H "Authorization: Bearer $token" http://localhost:3000/api/segments/<id>/wind-exposure`
+      → `wind.source` `open-meteo`, con la misma velocidad y dirección que `GET /api/weather/current`,
+      y `windExposure` entre 0 y 100 (con 10,1 km/h desde 305° salió 0,005: casi calma).
+- [ ] `?windSpeed=30&windDirection=300` → `orientationDeg` ≈ 36,2, `alignment` ≈ 0,107,
+      `windExposure` ≈ 5,4.
+- [ ] `?windSpeed=50&windDirection=36.2` → ≈ 100; con `126.2` (perpendicular) → ≈ 0,4; con `216.2`
+      (sentido contrario) → otra vez ≈ 100.
+- [ ] Con `?windSpeed=5&windDirection=0` → `intensity` 0 y `windExposure` 0.
+- [ ] `?windSpeed=30` sin `windDirection` → `400` con `fields.windDirection`;
+      `?windSpeed=30&windDirection=400` → `400`; `/api/segments/999999999/wind-exposure` → `404`.
+- [ ] `npm run ci` y `npm run test:integration -- src/tests/integration/segmentQueries.test.js`
+      pasan con la BD de test levantada.
 
 ### PBI-5.3 y PBI-5.4 - Exposición y Ruta Sombreada
 

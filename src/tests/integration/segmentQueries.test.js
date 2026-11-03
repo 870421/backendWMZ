@@ -329,6 +329,35 @@ describe('segment queries and data status API (PostGIS)', () => {
     });
   });
 
+  describe('GET /api/segments/:id/wind-exposure', () => {
+    // S1 runs west-east and S2 south-north; the grid north of EPSG:25830 is ~1° off true north.
+    it('scores an aligned segment near 100 and a perpendicular one near 0', async () => {
+      const wind = '?windSpeed=50&windDirection=90';
+      const aligned = await get(`/api/segments/${ids.S1}/wind-exposure${wind}`);
+      const perpendicular = await get(`/api/segments/${ids.S2}/wind-exposure${wind}`);
+
+      expect(aligned.status).toBe(200);
+      expect(aligned.body).toMatchObject({
+        segmentId: ids.S1,
+        segmentSourceId: 'S1',
+        name: 'Calle S1',
+        wind: { speedKmh: 50, directionDeg: 90, source: 'request', time: null },
+        status: 'available',
+        intensity: 1
+      });
+      expect(Math.abs(aligned.body.orientationDeg - 90)).toBeLessThan(2);
+      expect(aligned.body.windExposure).toBeGreaterThan(99);
+      expect(Math.abs(perpendicular.body.orientationDeg % 180)).toBeLessThan(2);
+      expect(perpendicular.body.windExposure).toBeLessThan(3);
+    });
+
+    it('returns 404 for a segment that does not exist', async () => {
+      const response = await get('/api/segments/999999/wind-exposure?windSpeed=30&windDirection=0');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
   describe('GET /api/data/status', () => {
     it('returns the latest import per dataset and the latest association per type', async () => {
       await sequelize.query(
@@ -383,6 +412,7 @@ describe('segment queries and data status API (PostGIS)', () => {
   describe('authentication', () => {
     it.each([
       `/api/segments/1/urban-elements`,
+      '/api/segments/1/wind-exposure',
       '/api/segments/nearest?lat=41.65&lng=-0.88',
       '/api/segments/by-source/S1',
       '/api/data/status'
