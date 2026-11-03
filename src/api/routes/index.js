@@ -5,6 +5,7 @@ const { authRouter } = require('./authRoutes');
 const { dataRouter } = require('./dataRoutes');
 const { geocodingRouter } = require('./geocodingRoutes');
 const { healthRouter } = require('./healthRoutes');
+const { routeProfileRouter } = require('./routeProfileRoutes');
 const { routeRouter } = require('./routeRoutes');
 const { weatherRouter } = require('./weatherRoutes');
 const { segmentRouter } = require('./segmentRoutes');
@@ -16,6 +17,7 @@ apiRouter.use('/data', requireAuth, dataRouter);
 apiRouter.use('/geocoding', requireAuth, geocodingRouter);
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/routes', requireAuth, routeRouter);
+apiRouter.use('/route-profiles', requireAuth, routeProfileRouter);
 apiRouter.use('/weather', requireAuth, weatherRouter);
 apiRouter.use('/segments', requireAuth, segmentRouter);
 

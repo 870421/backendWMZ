@@ -160,12 +160,13 @@ async function getFastestWalkingRoute(points) {
   return fastest;
 }
 
-async function getAlternativeWalkingRoutes(points) {
+// weightFactor: how much longer (in time, the preference is "fastest") an alternative may be.
+async function getAlternativeWalkingRoutes(points, { weightFactor = 1.25 } = {}) {
   return requestWalkingRoutes({
     ...points,
     alternativeRoutes: {
       target_count: 2,
-      weight_factor: 1.25,
+      weight_factor: weightFactor,
       share_factor: 0.8
     }
   });

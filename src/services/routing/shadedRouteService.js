@@ -1,84 +1,19 @@
-const { importConfig } = require('../../config/importConfig');
-const { calculateRouteExposure } = require('../../domain/routes/routeExposure');
 const {
   MAX_DURATION_FACTOR,
   MIN_SHADE_IMPROVEMENT_POINTS,
   SUN_PENALTY_FACTOR,
   selectShadedRoute
 } = require('../../domain/routes/shadedRouteSelection');
-const { validateShadedRouteRequest } = require('../../domain/routes/routeRequest');
-const { calculateSolarPosition } = require('../../domain/solar/solarPosition');
-const {
-  getAlternativeWalkingRoutes
-} = require('../../integrations/openRouteService/directionsClient');
-const defaultRouteSegmentRepository = require('../../repositories/routeSegmentRepository');
-const { calculateSegmentExposures } = require('../shadow/exposureService');
+const { evaluateRouteCandidates } = require('./routeCandidates');
 
-function referenceFromSolarPosition(position) {
-  return {
-    instant: position.instant,
-    localDateTime: position.localDateTime,
-    timeZone: position.timeZone,
-    latitude: position.latitude,
-    longitude: position.longitude
-  };
-}
-
-async function calculateShadedRouteComparison(
-  input,
-  {
-    routesProvider = getAlternativeWalkingRoutes,
-    routeSegmentRepository = defaultRouteSegmentRepository,
-    exposureCalculator = calculateSegmentExposures,
-    solarCalculator = calculateSolarPosition
-  } = {}
-) {
-  const timeZone = validateShadedRouteRequest(input, importConfig.zaragozaBbox);
-  const solarInput = {
-    date: input.date,
-    time: input.time,
-    timeZone,
-    latitude: input.origin.lat,
-    longitude: input.origin.lng
-  };
-  // Validate and retain the reference before spending quota on ORS. The exposure service reuses
-  // the same PBI-5.1 contract when it invokes PBI-5.2 for the mapped street segments.
-  const solarPosition = solarCalculator(solarInput);
-  const candidates = await routesProvider({
-    origin: { lat: input.origin.lat, lng: input.origin.lng },
-    destination: { lat: input.destination.lat, lng: input.destination.lng }
-  });
-  const indexedCandidates = candidates.map((route, routeIndex) => ({ ...route, routeIndex }));
-  const coverageRows = await routeSegmentRepository.findSegmentsForRoutes(indexedCandidates);
-  const segmentIds = [...new Set(coverageRows.map(({ segmentId }) => Number(segmentId)))];
-
-  let exposureResult = null;
-  if (segmentIds.length > 0) {
-    exposureResult = await exposureCalculator({ segmentIds, ...solarInput });
-  }
-  const exposuresBySegmentId = new Map(
-    (exposureResult?.segments || []).map((exposure) => [Number(exposure.segmentId), exposure])
-  );
-
-  const routes = indexedCandidates.map((route) => ({
-    ...route,
-    exposure: calculateRouteExposure(
-      route,
-      coverageRows.filter(({ routeIndex }) => Number(routeIndex) === route.routeIndex),
-      exposuresBySegmentId
-    )
-  }));
+async function calculateShadedRouteComparison(input, dependencies = {}) {
+  const { routes, exposureStatus, reference } = await evaluateRouteCandidates(input, dependencies);
   const selection = selectShadedRoute(routes);
-  // Without projected shadows (night or a sun too low, ADR-015) the reason is more useful than
-  // the generic lack of exposure data.
-  const status =
-    exposureResult && exposureResult.status !== 'calculated'
-      ? exposureResult.status
-      : selection.status;
+  const status = exposureStatus || selection.status;
 
   return {
     status,
-    reference: exposureResult?.reference || referenceFromSolarPosition(solarPosition),
+    reference,
     fastest: selection.fastest,
     shaded: status === 'selected' ? selection.shaded : null,
     additionalDurationSeconds: status === 'selected' ? selection.additionalDurationSeconds : null,
