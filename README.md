@@ -70,6 +70,7 @@ Todas las geometrías se guardan en EPSG:4326 con índices GIST.
 | `email` | varchar(254), not null | Guardado en minúsculas; único sin distinguir mayúsculas (índice `users_email_lower_idx`) |
 | `password_hash` | varchar(100) | Hash bcrypt de la contraseña (nunca la contraseña); null en cuentas creadas solo con Google |
 | `google_id` | varchar(255), único | Identificador de la cuenta de Google vinculada; null si no se ha usado Google |
+| `route_profiles_seeded` | boolean, not null | Si ya se le copiaron las rutas predefinidas (PBI-6) |
 | `created_at`, `updated_at` | timestamptz | Fechas de alta y última modificación |
 
 La restricción `users_credentials_check` obliga a que cada usuario tenga contraseña, cuenta de
@@ -479,7 +480,7 @@ objeto `user` de las respuestas es siempre `{ id, name, email }` y nunca incluye
 
 ### Endpoints protegidos
 
-`/api/routes/*`, `/api/geocoding/*`, `/api/segments/*` y `/api/data/*` exigen un token válido. Sin cabecera, o con un token
+`/api/routes/*`, `/api/route-profiles/*`, `/api/geocoding/*`, `/api/segments/*` y `/api/data/*` exigen un token válido. Sin cabecera, o con un token
 caducado o manipulado, responden:
 
 ```json
@@ -627,6 +628,41 @@ Desde la raíz del workspace, `docker compose up` carga `backend/.env` mediante 
 Crea ese fichero (ignorado por Git) a partir de `.env.example` antes de arrancar Compose; no
 sobrescribas una clave existente. El frontend llega a la API a través del proxy de desarrollo de
 Vite.
+
+## Rutas con pesos (PBI-6)
+
+Cada usuario tiene sus rutas guardadas con un peso de 0 a 100 % para la sombra y otro para el sol, y
+el tiempo extra máximo respecto a la ruta rápida, de 0 a 40 % (ADR-023). La primera vez que las lista
+recibe una copia de las tres predefinidas: Rápida (0/0), Sombreada (50/0) y Soleada (0/50), las tres
+con un 25 % de tiempo extra.
+
+### `GET /api/route-profiles`
+
+```json
+{ "profiles": [{ "id": 1, "name": "Rápida", "presetKey": "fastest", "weights": { "shade": 0, "sun": 0 }, "maxDetourPercentage": 25 }] }
+```
+
+### `POST /api/route-profiles` y `PUT /api/route-profiles/:id`
+
+Cuerpo `{ "name": "Verano", "weights": { "shade": 80, "sun": 0 }, "maxDetourPercentage": 10 }`
+(`maxDetourPercentage` es opcional; por defecto, 25). Responden `201` o `200` con
+`{ "profile": ... }`. Errores: `400` con `fields` si el nombre (1 a 40 caracteres) o un peso no son
+válidos, `409` si el nombre ya existe para ese usuario o tiene ya 20 rutas, y `404` si la ruta no es
+suya.
+
+### `DELETE /api/route-profiles/:id`
+
+Responde `204`. Borra la ruta solo para ese usuario, también si es predefinida.
+
+### `POST /api/routes/weighted`
+
+El mismo cuerpo que `POST /api/routes/shaded` más `"weights": { "shade": 80, "sun": 0 }` y, opcional,
+`"maxDetourPercentage": 10` (de 0 a 40; por defecto, 25). Devuelve
+`{ "comparison": { "status", "weights", "fastest", "selected", "additionalDurationSeconds",
+"shadeChangePercentagePoints", "candidatesEvaluated", "strategy" } }`. `selected` es la alternativa
+elegida con esos pesos o `null`; `status` es `selected`, `no_better_alternative`,
+`insufficient_exposure_data`, `sun_below_horizon`, `sun_too_low` o, con los pesos a 0,
+`fastest_only` (solo se pide la ruta rápida).
 
 ## Contrato de la ruta rápida (PBI-2)
 
