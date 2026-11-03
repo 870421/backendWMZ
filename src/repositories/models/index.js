@@ -83,12 +83,35 @@ const User = sequelize.define(
     name: { type: DataTypes.STRING(100), allowNull: false },
     email: { type: DataTypes.STRING(254), allowNull: false },
     passwordHash: DataTypes.STRING(100),
-    googleId: DataTypes.STRING(255)
+    googleId: DataTypes.STRING(255),
+    routeProfilesSeeded: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
   },
   { underscored: true, timestamps: true, tableName: 'users' }
+);
+
+const RouteProfile = sequelize.define(
+  'RouteProfile',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(40), allowNull: false },
+    presetKey: DataTypes.STRING(20),
+    shadeWeight: { type: DataTypes.SMALLINT, allowNull: false },
+    sunWeight: { type: DataTypes.SMALLINT, allowNull: false },
+    maxDetourPercentage: { type: DataTypes.SMALLINT, allowNull: false, defaultValue: 25 }
+  },
+  { underscored: true, timestamps: true, tableName: 'route_profiles' }
 );
 
 ImportRun.hasMany(ImportRejection, { foreignKey: 'importRunId' });
 ImportRejection.belongsTo(ImportRun, { foreignKey: 'importRunId' });
 
-module.exports = { sequelize, ImportRun, ImportRejection, Building, Tree, StreetSegment, User };
+module.exports = {
+  sequelize,
+  ImportRun,
+  ImportRejection,
+  Building,
+  Tree,
+  StreetSegment,
+  User,
+  RouteProfile
+};
