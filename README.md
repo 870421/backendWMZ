@@ -470,7 +470,7 @@ todavía el viento al coste de las rutas (la PBI-8.1 lo usa para la exposición 
 
 ## Exposición al viento por tramo (PBI-8.1)
 
-`src/domain/wind/windExposure.js` puntúa de 0 a 100 cuánto expone un tramo al viento (ADR-023):
+`src/domain/wind/windExposure.js` puntúa de 0 a 100 cuánto expone un tramo al viento (ADR-024):
 
 - **Orientación:** `segmentRepository.getSegmentPieces` divide el tramo en sus segmentos rectos
   con `ST_DumpSegments` en EPSG:25830 y devuelve el rumbo (`ST_Azimuth`) y la longitud de cada

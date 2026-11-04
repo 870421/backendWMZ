@@ -15,7 +15,7 @@ async function resolveWind(override, weather) {
 }
 
 /*
- * Wind exposure of one segment (ADR-023). Without an override it uses the current Open-Meteo
+ * Wind exposure of one segment (ADR-024). Without an override it uses the current Open-Meteo
  * wind of PBI-7, which is cached for five minutes.
  */
 async function getSegmentWindExposure(

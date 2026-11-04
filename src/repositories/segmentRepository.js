@@ -43,7 +43,7 @@ function getNearestSegmentToPoint({ lat, lng }, knn) {
 
 /*
  * Straight pieces of a segment in EPSG:25830 (metres), for its orientation. The grid north there
- * differs from true north by about 1° in Zaragoza, negligible for the wind model (ADR-023).
+ * differs from true north by about 1° in Zaragoza, negligible for the wind model (ADR-024).
  */
 function getSegmentPieces(id) {
   return sequelize.query(

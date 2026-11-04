@@ -1,6 +1,6 @@
 const { httpError } = require('../../utils/httpError');
 
-// Thresholds of ADR-023: calm below MIN, full effect from MAX (km/h).
+// Thresholds of ADR-024: calm below MIN, full effect from MAX (km/h).
 const MIN_WIND_SPEED_KMH = 10;
 const MAX_WIND_SPEED_KMH = 50;
 const MAX_ACCEPTED_WIND_SPEED_KMH = 200;
