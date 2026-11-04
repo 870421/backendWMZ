@@ -41,4 +41,25 @@ function getNearestSegmentToPoint({ lat, lng }, knn) {
   );
 }
 
-module.exports = { getSegmentById, getSegmentBySourceId, getNearestSegmentToPoint };
+/*
+ * Straight pieces of a segment in EPSG:25830 (metres), for its orientation. The grid north there
+ * differs from true north by about 1° in Zaragoza, negligible for the wind model (ADR-024).
+ */
+function getSegmentPieces(id) {
+  return sequelize.query(
+    `SELECT degrees(ST_Azimuth(ST_StartPoint(d.geom), ST_EndPoint(d.geom))) AS "bearingDeg",
+            ST_Length(d.geom) AS "lengthM"
+     FROM street_segments s
+     CROSS JOIN LATERAL ST_DumpSegments(ST_Transform(s.geom, 25830)) d
+     WHERE s.id = :id AND ST_Length(d.geom) > 0
+     ORDER BY d.path`,
+    { replacements: { id }, type: QueryTypes.SELECT }
+  );
+}
+
+module.exports = {
+  getSegmentById,
+  getSegmentBySourceId,
+  getNearestSegmentToPoint,
+  getSegmentPieces
+};
