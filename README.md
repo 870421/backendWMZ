@@ -165,7 +165,7 @@ Cuatro endpoints de lectura que exponen las asociaciones de la PBI-3.2. Todos ex
 (`Authorization: Bearer <token>`; sin ella, `401`) y devuelven los errores con el formato común
 `{ "error": { "message", "fields"? } }`. No calculan nada al vuelo: "asociados o cercanos" es lo que
 hay en `segment_trees` y `segment_buildings` (tramo más cercano + radio). Las decisiones: ver
-DECISIONS.md (PBI-3.3 y ADR-011) en la carpeta docs del Drive del equipo.
+DECISIONS.md (PBI-3.3 y ADR-027) en la carpeta docs del Drive del equipo.
 
 ### `GET /api/segments/:id/urban-elements`
 
